@@ -32,8 +32,9 @@ class vgg19_model(nn.Module):
                 layer += [m]
             elif model_layer >= 21 and model_layer < 29:
                 layer += [m]
-        five_layers += [nn.Sequential(*layer)]
+            model_layer += 1
 
+        five_layers += [nn.Sequential(*layer)]
         return five_layers
 
 
