@@ -9,33 +9,70 @@ import torchvision.transforms.functional as F
 import numpy as np
 from PIL import Image
 
-#torch.cuda.set_device(0)
+torch.cuda.set_device(0)
 
-vgg = vgg19(True).eval()
+class vgg19_model(nn.Module):
+    def __init__(self):
+        super(vgg19_model, self).__init__()
+        self.model = vgg19(pretrained=True)
+        # self.layers = self.forward(model)
 
-preprocess = transforms.Compose([transforms.Resize(224),
-                                         transforms.ToTensor(),
-                                         transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                              std=[0.229, 0.224, 0.225])])
+#         self.batchSize = 1
+#         self.num_channel = 3
+#         self.img_size = 224
+#         self.input = torch.Tensor(self.batchSize, self.num_channel, self.img_size, self.img_size)
+        # print(self.layers)
 
-im_a = Image.open("./imgs/dogs_to_morph/dog1.PNG")
-# from https://gist.github.com/jkarimi91/d393688c4d4cdb9251e3f939f138876e
-im_a_trans = Variable(preprocess(im_a).unsqueeze(0))
-out = vgg(im_a_trans)
-print('Prediction for dog1.png is: %s'%(np.argmax(out.cpu().detach().numpy())))
+    def forward(self, img):
+        pyramid_layers = []
+        def extract_feature(self, input, output):
+            pyramid_layers.append(output)
 
-print(vgg)
-# returns the feature tensors of each image, as they are forwarded through the trained model
-# assumes that the images are already in Tensor form
-def get_features(imgA, imgB, model):
-    # load imgA into the model
-    F_A = model.forward(imgA).data
-    # load imgB into the model
-    F_B = model.forward(imgB).data
-    return [F_A, F_B]
+        relu_idx = [1, 6, 11, 20, 29]
+        for i in relu_idx:
+            self.model.features[i].register_forward_hook(extract_feature)
+        # Image preprocessing
+        # VGGNet was trained on ImageNet where images are normalized by mean=[0.485, 0.456, 0.406]
+        # and std=[0.229, 0.224, 0.225].
+        # We use the same normalization statistics here.
+        transform = transforms.Compose([
+            transforms.Resize(224),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                                 std=(0.229, 0.224, 0.225))])
 
-# R5 = (F_A, F_B) --> the entire domain of F_A and F_B
-# C_B5 and C_A5 = F_B and F_A (no style transfer needed)
-# Then, go through other layers and...
-# TODO: get P and Q from the feature tensors
-# TODO: get p's and q's from each subset of P and Q
+        img_preproc = transform(img)
+        img_preproc = torch.unsqueeze(img_preproc, 0)
+        img_tens = V(img_preproc)
+        self.model(img_tens)
+
+        return pyramid_layers, img_tens
+
+vgg = vgg19_model()
+im_a = Image.open("../input/dog1.jpg")
+im_b = Image.open("../input/dog.jpg")
+
+feat_a, im_a_tens = vgg.forward(im_a)
+feat_b, im_b_tens = vgg.forward(im_b)
+
+# a, b = spatial domains
+# feat_a is the feature of img a
+# returns the common appearance C(a, b)
+def common_appearance(feat_a, a, b):
+    #print(a.shape)
+    mean_m = (a.mean() + b.mean())/2
+    std_m = (a.var() + b.var())/2
+    #print(feat_a.shape)
+    common_app_a_b = (a - a.mean())/a.var()
+    #print(common_app_a_b.shape)
+    common_app_a_b = std_m * common_app_a_b
+    common_app_a_b = common_app_a_b + mean_m
+    return common_app_a_b
+
+common_a_b = common_appearance(feat_a, im_a_tens, im_b_tens)
+common_b_a = common_appearance(feat_a, im_b_tens, im_a_tens)
+#print(common_a_b.squeeze().shape)
+# we squeeze because we get a tensor of shape [1, 3, 224, 224] from common_appearance, and need [3, 224, 224] to use pil_image
+# for ipython notebook:
+# F.to_pil_image(common_a_b.squeeze())
+# F.to_pil_image(common_b_a.squeeze())
