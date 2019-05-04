@@ -58,7 +58,7 @@ feat_b, im_b_tens = vgg.forward(im_b)
 # a, b = spatial domains
 # feat_a is the feature of img a
 # returns the common appearance C(a, b)
-def common_appearance(feat_a, a, b):
+def common_appearance(a, b):
     #print(a.shape)
     mean_m = (a.mean() + b.mean())/2
     std_m = (a.var() + b.var())/2
@@ -69,8 +69,8 @@ def common_appearance(feat_a, a, b):
     common_app_a_b = common_app_a_b + mean_m
     return common_app_a_b
 
-common_a_b = common_appearance(feat_a, im_a_tens, im_b_tens)
-common_b_a = common_appearance(feat_a, im_b_tens, im_a_tens)
+common_a_b = common_appearance(im_a_tens, im_b_tens)
+common_b_a = common_appearance(im_b_tens, im_a_tens)
 #print(common_a_b.squeeze().shape)
 # we squeeze because we get a tensor of shape [1, 3, 224, 224] from common_appearance, and need [3, 224, 224] to use pil_image
 # for ipython notebook:
