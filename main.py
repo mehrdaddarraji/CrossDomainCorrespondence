@@ -69,7 +69,8 @@ def common_appearance(feat_a, a, b, layer):
     sig_b = b.std(2).std(1)
     sig_m = (sig_a + sig_b) / 2
     # have to permute, in order to be able to subtract the mean correctly
-    temp = (feat_a[0].squeeze().permute(1, 2, 0) - mean_a)
+    #temp = (feat_a[0].squeeze().view(-1) - mean_a)
+    temp = (a.permute(1,2,0) - mean_a)
     a_to_b = (temp/ sig_a * sig_m + mean_m).permute(2,0,1)
     return a_to_b
 
