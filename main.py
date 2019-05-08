@@ -55,19 +55,23 @@ im_b = Image.open("../input/dog.jpg")
 feat_a, im_a_tens = vgg.forward(im_a)
 feat_b, im_b_tens = vgg.forward(im_b)
 
-# a, b = spatial domains
+# a: torch.Size([3, 224, 224]), b: torch.Size([3, 224, 224]) = spatial domains for the whole img (lvl 5)
 # feat_a is the feature of img a
 # returns the common appearance C(a, b)
-def common_appearance(a, b):
-    #print(a.shape)
-    mean_m = (a.mean() + b.mean())/2
-    std_m = (a.var() + b.var())/2
-    #print(feat_a.shape)
-    common_app_a_b = (a - a.mean())/a.var()
-    #print(common_app_a_b.shape)
-    common_app_a_b = std_m * common_app_a_b
-    common_app_a_b = common_app_a_b + mean_m
-    return common_app_a_b
+def common_appearance(feat_a, a, b, layer):
+    # have to squeeze to get rid of the unecessary dimension
+    a = a.squeeze()
+    b = b.squeeze()
+    mean_a = a.mean(2).mean(1)
+    mean_b = b.mean(2).mean(1)
+    mean_m = (mean_a + mean_b) / 2
+    sig_a = a.std(2).std(1)
+    sig_b = b.std(2).std(1)
+    sig_m = (sig_a + sig_b) / 2
+    # have to permute, in order to be able to subtract the mean correctly
+    temp = (feat_a[0].squeeze().permute(1, 2, 0) - mean_a)
+    a_to_b = (temp/ sig_a * sig_m + mean_m).permute(2,0,1)
+    return a_to_b
 
 common_a_b = common_appearance(im_a_tens, im_b_tens)
 common_b_a = common_appearance(im_b_tens, im_a_tens)
