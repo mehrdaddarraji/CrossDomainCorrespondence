@@ -81,3 +81,28 @@ common_b_a = common_appearance(im_b_tens, im_a_tens)
 # for ipython notebook:
 # F.to_pil_image(common_a_b.squeeze())
 # F.to_pil_image(common_b_a.squeeze())
+
+# similarity metric
+# input: a (the neuron we want to pair AKA spatial domain), NL_B (list of neurons/spatial domains that are candidate to pairing with a)
+# (ax, ay) is the coordinates of P (from RL) and (bx, by) of Q
+# finds and returns the nearest neighbor of a using the similarity matrix
+def similarity_metric(A, B):
+    sim_calc = []
+    candidates = []
+    # iterate through all
+    # iterate through all the indices of NL(b)(neighbor neurons) using the spatial domain of NL_B
+    for b in NL_B:
+        common_a_b = common_appearance(feat_a, im_a_tens, b, layer)
+        common_b_a = common_appearance(feat_b, b, im_a_tens, layer)
+        a_b_norm = common_a_b.clone().permute(1,2,0).norm(2, 2)
+        b_a_norm = common_b_a.clone().permute(1,2,0).norm(2, 2)
+        similarity = (common_a_b.div(a_b_norm))*(common_b_a.div(b_a_norm))
+        # save the neuron and its normalization value thing
+        #candidates.append(tuple([b, similarity]))
+        sim_calc.append(similarity)
+        candidates.append(b)
+    # do the summation of this, should return list of touples (neuron, similarity)
+    #candidates = sum(temp_calcs, 2)
+    summation = sum(sim_calc)
+    ind = argmax(summation)
+    return candidates[ind];
