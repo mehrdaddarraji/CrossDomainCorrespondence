@@ -58,7 +58,7 @@ feat_b, im_b_tens = vgg.forward(im_b)
 # a: torch.Size([3, 224, 224]), b: torch.Size([3, 224, 224]) = spatial domains for the whole img (lvl 5)
 # feat_a is the feature of img a
 # returns the common appearance C(a, b)
-def common_appearance(feat_a, a, b, layer):
+def common_appearance( a, b):
     # have to squeeze to get rid of the unecessary dimension
     a = a.squeeze()
     b = b.squeeze()
@@ -82,27 +82,46 @@ common_b_a = common_appearance(im_b_tens, im_a_tens)
 # F.to_pil_image(common_a_b.squeeze())
 # F.to_pil_image(common_b_a.squeeze())
 
-# similarity metric
-# input: a (the neuron we want to pair AKA spatial domain), NL_B (list of neurons/spatial domains that are candidate to pairing with a)
-# (ax, ay) is the coordinates of P (from RL) and (bx, by) of Q
-# finds and returns the nearest neighbor of a using the similarity matrix
-def similarity_metric(A, B):
-    sim_calc = []
+# returns a list of candidates which are nearest neighbors: [(p,q)]
+def get_candidates(qs_for_ps, ps_for_qs):
+    # to reverse contents in the tuple, facilitates comparison
+    ps_for_qs_new = [tuple(reversed(tup)) for tup in ps_for_qs]
     candidates = []
-    # iterate through all
-    # iterate through all the indices of NL(b)(neighbor neurons) using the spatial domain of NL_B
-    for b in NL_B:
-        common_a_b = common_appearance(feat_a, im_a_tens, b, layer)
-        common_b_a = common_appearance(feat_b, b, im_a_tens, layer)
-        a_b_norm = common_a_b.clone().permute(1,2,0).norm(2, 2)
-        b_a_norm = common_b_a.clone().permute(1,2,0).norm(2, 2)
-        similarity = (common_a_b.div(a_b_norm))*(common_b_a.div(b_a_norm))
-        # save the neuron and its normalization value thing
-        #candidates.append(tuple([b, similarity]))
-        sim_calc.append(similarity)
-        candidates.append(b)
-    # do the summation of this, should return list of touples (neuron, similarity)
-    #candidates = sum(temp_calcs, 2)
-    summation = sum(sim_calc)
-    ind = argmax(summation)
-    return candidates[ind];
+    for i range(len(qs_for_ps))
+        if qs_for_ps[i] is in ps_for_qs_new
+            candidates.append(qs_for_ps[i])
+    return candidates
+
+# input, feature tensors of the new regions from P and Q
+# returns 2 lists of touples, one for P and one for Q
+# each touple is a neuron p, with is corresponding NN q
+# p_list, and q_list is a list of touples where each touple contains touples of coordinates [((x1, y1), (x2, y2))]
+def NBB(P, Q):
+    common_p_q = common_appearance(P, Q)
+    common_q_p = common_appearance(Q, P)
+
+    # get d()
+
+    # iterate through the p's in common_p_q to find its neighbors in Q, (p, q)
+    qs_for_ps = get_neighbors(P)
+    # iterate through the q's in common_q_p to find its neighbors in P, (q, p)
+    ps_for_qs = get_neighbors(Q)
+    # returns in (p, q) format
+    # get the candidates that are nearest neighbors to each other
+    candidates = get_candidates(qs_for_ps, ps_for_qs)
+    # check the activations and find the most meaningful buddies
+    # must return in format p[], q[]
+    return meaningful_buddies(candidates)
+
+    class Neuron:
+        def __init__(self, x, y):
+            self.x = x
+            self.y = y
+        def __repr__(self):
+            return "(" + str(self.x) + ", " + str(self.y) + ")"
+        def __lt__(self, other):
+            return self.x < other.x
+        def __eq__(self, other):
+            return self.x == other.x and self.y == other.y
+        def __gt__(self, other):
+            return self.x > other.x
