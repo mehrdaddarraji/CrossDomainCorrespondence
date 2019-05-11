@@ -12,6 +12,7 @@ import torchvision.transforms.functional as F
 import numpy as np
 from PIL import Image
 
+from torch.autograd import Variable
 # Neuron class, takes in row and col coordinates
 class Neuron:
     def __init__(self, row, col):
@@ -231,22 +232,32 @@ def vgg19_model(img_a, img_b, img_a_tens, img_b_tens):
     return pyramid_layers[:5], pyramid_layers[5:]
 
 def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
-    resnet18 = models.resnet18(pretrained=True).eval()
+    model = models.resnet18(pretrained=True).eval()
+    layer = model._modules.get('avgpool')
     pyramid_layers = []
-    def extract_feature(module, input, output):
-        pyramid_layers.append(output)
-    # not sure what this is? 
-    relu_idx = [3, 8, 17, 26, 35]
-    for j in relu_idx:
-        model.features[j].register_forward_hook(extract_feature)
-
+    my_embedding = torch.zeros(512)
+    # Define a function that will copy the output of a layer
+    def copy_data(m, i, o):
+        my_embedding.copy_(o.data.squeeze())
+    # Attach that function to our selected layer
+    h = layer.register_forward_hook(copy_data)
+    # Run the model on our transformed image
     model(img_a_tens)
     model(img_b_tens)
+    # Detach our copy function from the layer
+    h.remove()
+    # Return the feature vector
 
-    return pyramid_layers[:5], pyramid_layers[5:]
+    # def extract_feature(module, input, output):
+    #     pyramid_layers.append(output)
+    # # not sure what this is? 
+    # relu_idx = [3, 8, 17, 26, 35]
+    # for j in relu_idx:
+    #     model.features[j].register_forward_hook(extract_feature)
+    # return pyramid_layers[:5], pyramid_layers[5:]
 
 
-    
+    return my_embedding[:5], my_embedding[5:]
 
 def main():
     img_a = Image.open("../input/dog1.jpg")
@@ -256,6 +267,20 @@ def main():
 
     feat_a_19, feat_b_19 = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
     # now lets do the same for resnet_18
+    to_tensor = transforms.ToTensor()
+    scaler = transforms.Scale((224, 224))
+    normalize = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                             std=(0.229, 0.224, 0.225))])
+    
+    scaler(img_a)
+    to_tensor(scaler(img_a))
+    normalize(to_tensor(scaler(img_a)))
+    img_a_tens = Variable(normalize(to_tensor(scaler(img_a))).unsqueeze(0))
+    img_b_tens = Variable(normalize(to_tensor(scaler(img_b))).unsqueeze(0))
     feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
 
 if __name__ == "__main__":
