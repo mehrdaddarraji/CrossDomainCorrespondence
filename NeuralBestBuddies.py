@@ -58,8 +58,8 @@ def get_candidates(qs_for_ps, ps_for_qs):
     # to reverse contents in the tuple, facilitates comparison
     ps_for_qs_new = [tuple(reversed(tup)) for tup in ps_for_qs]
     candidates = []
-    for i range(len(qs_for_ps))
-        if qs_for_ps[i] is in ps_for_qs_new
+    for i in range(len(qs_for_ps)):
+        if qs_for_ps[i] in ps_for_qs_new:
             candidates.append(qs_for_ps[i])
     return candidates
 
