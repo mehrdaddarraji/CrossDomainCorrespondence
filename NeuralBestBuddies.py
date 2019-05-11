@@ -3,10 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable as V
-# from torchvision.models import vgg19
-# from torchvision.models import resnet18
-# from torchvision.models import inceptionv3
-import torchvision.models as models
+from torchvision.models import vgg19
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as F
 import numpy as np
@@ -62,19 +59,19 @@ def get_candidates(qs_for_ps, ps_for_qs):
     # to reverse contents in the tuple, facilitates comparison
     ps_for_qs_new = [tuple(reversed(tup)) for tup in ps_for_qs]
     candidates = []
-    # for i range(len(qs_for_ps))
-    #     if qs_for_ps[i] is in ps_for_qs_new
-    #         candidates.append(qs_for_ps[i])
+    for i in range(len(qs_for_ps)):
+        if qs_for_ps[i] in ps_for_qs_new:
+            candidates.append(qs_for_ps[i])
     return candidates
 
 # returns nearest neighbor of neuron p ∈ P in the set Q under a similarity metric
-# formula 1, 2, and 3 from the paper
+# formula 1 from the paper
 def nearest_neighbor(commapp_PQ, commapp_QP, P_region, Q_region):
     # region points to calculate
-    #     top_left_p = P_region[0]
-    #     bottom_right_p = points_list[1]
-    #     top_left_q = Q_region[0]
-    #     bottom_right_q = Q_region[1]
+#     top_left_p = P_region[0]
+#     bottom_right_p = points_list[1]
+#     top_left_q = Q_region[0]
+#     bottom_right_q = Q_region[1]
 
     # TODO: change for loops so they only iterate through the region rather than whole map
 
@@ -216,7 +213,7 @@ def img_preprocess(img):
 # takes in image a, image b, normalized tensor of image a, normalized tensor of img b
 # returns 5 layered feature map of img a and img b
 def vgg19_model(img_a, img_b, img_a_tens, img_b_tens):
-    model = models.vgg19(pretrained=True).eval()
+    model = vgg19(pretrained=True).eval()
     pyramid_layers = []
 
     def extract_feature(module, input, output):
@@ -282,6 +279,7 @@ def main():
     img_a_tens = Variable(normalize(to_tensor(scaler(img_a))).unsqueeze(0))
     img_b_tens = Variable(normalize(to_tensor(scaler(img_b))).unsqueeze(0))
     feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
+    feat_a, feat_b = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
 
 if __name__ == "__main__":
     main()
