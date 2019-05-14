@@ -123,7 +123,7 @@ def common_appearance(P, Q, region_p, region_q):
     P_copy_reg = P_copy[:, top_left_p.x:bottom_right_p.x, top_left_p.y:bottom_right_p.y]
     Q_copy_reg = Q_copy[:, top_left_q.x:bottom_right_q.x, top_left_q.y:bottom_right_q.y]
 
-    # have to squeeze to get rid of the unecessary dimension
+    # have to squeeze to remove first dimension: [C, H, W]
     mean_p = P_copy_reg.mean(2).mean(1)
     mean_q = Q_copy_reg.mean(2).mean(1)
     mean_m = (mean_p + mean_q) / 2
