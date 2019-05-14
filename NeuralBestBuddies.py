@@ -123,7 +123,11 @@ def common_appearance(P, Q, region_p, region_q):
     P_copy_reg = P_copy[:, top_left_p.x:bottom_right_p.x, top_left_p.y:bottom_right_p.y]
     Q_copy_reg = Q_copy[:, top_left_q.x:bottom_right_q.x, top_left_q.y:bottom_right_q.y]
 
+<<<<<<< HEAD
     # squeeze to remove 1st dimension: [C, H, W]
+=======
+    # have to squeeze to get rid of the unecessary dimension
+>>>>>>> 9e447b06f59850fe8e7dcbed9c337f961e3db8e0
     mean_p = P_copy_reg.mean(2).mean(1)
     mean_q = Q_copy_reg.mean(2).mean(1)
     mean_m = (mean_p + mean_q) / 2
@@ -150,7 +154,11 @@ def RefineSearchRegions(prev_layer_nbbs, receptive_field_radius, feat_width, fea
         feat_width: width of feature map for current layer
         feat_height: height of feature map for current layer
     Returns:
+<<<<<<< HEAD
         Ps: List containing new P's
+=======
+        Ps: List containing new P's 
+>>>>>>> 9e447b06f59850fe8e7dcbed9c337f961e3db8e0
             P = ((r1, c1), (r2, c2))
             where (r1, c1) represent the top left of the search region
             and (r2, c2) represent the bottom right of the search region
@@ -159,26 +167,44 @@ def RefineSearchRegions(prev_layer_nbbs, receptive_field_radius, feat_width, fea
             where (r1, c1) represent the top left of the search region
             and (r2, c2) represent the bottom right of the search region
     """
+<<<<<<< HEAD
 
     Ps = []
     Qs = []
 
     for p, q in prev_layer_nbbs:
 
+=======
+    
+    Ps = []
+    Qs = []
+    
+    for p, q in prev_layer_nbbs:
+       
+>>>>>>> 9e447b06f59850fe8e7dcbed9c337f961e3db8e0
         # Top left of search window for P
         P_r1 = max(2 * p.r - receptive_field_radius / 2, 0)
         P_c2 = max(2 * p.c - receptive_field_radius / 2, 0)
         P_bottom_left = Neuron(P_r1, P_c1)
+<<<<<<< HEAD
 
+=======
+                  
+>>>>>>> 9e447b06f59850fe8e7dcbed9c337f961e3db8e0
         # Bottom right of search window for P
         P_r2 = min(2 * p.r + receptive_field_radius / 2, feat_width)
         P_c2 = min(2 * p.c + receptive_field_radius / 2, feat_height)
         P_top_right = Neuron(P_r2, P_c2)
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 9e447b06f59850fe8e7dcbed9c337f961e3db8e0
         # Top left of search window for Q
         Q_r1 = max(2 * q.r - receptive_field_radius / 2, 0)
         Q_c1 = max(2 * q.c - receptive_field_radius / 2, 0)
         Q_bottom_left = Neuron(Q_c1, Q_r1)
+<<<<<<< HEAD
 
         # Bottom right of search window for Q
         Q_r2 = min(2 * q.r + receptive_field_radius / 2, feat_width)
@@ -189,6 +215,18 @@ def RefineSearchRegions(prev_layer_nbbs, receptive_field_radius, feat_width, fea
         Ps.append((P_bottom_left, P_top_right))
         Qs.append((Q_bottom_left, Q_top_right))
 
+=======
+        
+        # Bottom right of search window for Q                     
+        Q_r2 = min(2 * q.r + receptive_field_radius / 2, feat_width)
+        Q_c2 = min(2 * q.c + receptive_field_radius / 2, feat_height)
+        Q_top_right = Neuron(Q_c2, Q_r2)
+        
+        # Append P and Q to lists
+        Ps.append((P_bottom_left, P_top_right))
+        Qs.append((Q_bottom_left, Q_top_right))
+    
+>>>>>>> 9e447b06f59850fe8e7dcbed9c337f961e3db8e0
     return (Ps, Qs)
 
 # Image preprocessing
