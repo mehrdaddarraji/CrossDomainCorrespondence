@@ -53,6 +53,41 @@ def NBB(P, Q):
     # must return in format p[], q[]
     return meaningful_buddies(candidates)
 
+
+def normalize_feature_map(feat_map):
+    """
+    Assigns each neuron a value in the range [0, 1] to the
+    given feature map
+
+    Args: 
+        feat_map: feature map tensor
+       
+    Returns:
+        norm_feat_map: normalized feature map
+    """ 
+
+    feat_min = feat_map.min()
+    feat_max = feat_map.max()
+    
+    norm_feat_map = (feat_map - feat_min) / (feat_max - feat_min)
+
+    return norm_feat_map
+
+
+def calculate_activation_maps(candidates, feat_a, feat_b):
+    """
+
+    Args: 
+       
+    Returns:
+
+    """ 
+
+    # Assign each neuron a value in the range [0, 1]
+    feat_a_normalized = normalize_feature_map(feat_a)
+    feat_b_normalized = normalize_feature_map(feat_b)
+
+
 # returns a list of candidates which are nearest neighbors: [(p,q)]
 def get_candidates(qs_for_ps, ps_for_qs):
     # to reverse contents in the tuple, facilitates comparison
@@ -138,7 +173,7 @@ def common_appearance(P, Q, region_p, region_q):
     p_to_q[:, :, top_left_p.x:bottom_right_p.x, top_left_p.y:bottom_right_p.y] = common_app
     return p_to_q
 
-def RefineSearchRegions(prev_layer_nbbs, receptive_field_radius, feat_width, feat_height):
+def refine_search_regions(prev_layer_nbbs, receptive_field_radius, feat_width, feat_height):
     """
     Return refined search regions for every p and q in the previous' layer nbbs
 
