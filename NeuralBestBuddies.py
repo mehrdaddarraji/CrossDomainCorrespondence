@@ -194,7 +194,7 @@ def RefineSearchRegions(prev_layer_nbbs, receptive_field_radius, feat_width, fea
     return (Ps, Qs)
 
 # Image preprocessing
-def img_preprocess(img):
+def img_preprocess_VGG(img):
     # VGGNet was trained on ImageNet where images are normalized by mean=[0.485, 0.456, 0.406]
     # and std=[0.229, 0.224, 0.225].
     # We use the same normalization statistics here.
@@ -208,6 +208,31 @@ def img_preprocess(img):
     img_preproc = torch.unsqueeze(img_preproc, 0)
     img_tens = V(img_preproc)
 
+    return img_tens
+
+def image_preprocess_resnet(img):
+    # now lets do the same for resnet_18
+    to_tensor = transforms.ToTensor()
+    scaler = transforms.Scale((224, 224))
+    normalize = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                             std=(0.229, 0.224, 0.225))])
+    img_tens = Variable(normalize(to_tensor(scaler(img))).unsqueeze(0))
+    return img_tens
+
+def image_preprocess_alexnet(img):
+    to_tensor = transforms.ToTensor()
+    scaler = transforms.Scale((299, 299))
+    normalize = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize(299),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                             std=(0.229, 0.224, 0.225))])
+    img_tens = Variable(normalize(to_tensor(scaler(img))).unsqueeze(0))
     return img_tens
 
 # vgg model
@@ -255,34 +280,50 @@ def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
     # remove duplicates..... (not sure why we had them in the first place.)
     pyramid_layers = [ pyramid_layers[idx] for idx in range(0, len(pyramid_layers), 2)]
     # Return the feature vector
-    for layer in pyramid_layers:
+    for layer in pyramid_layers: # debug, check layers
         print("ith layer @ relu: ", layer.size())
     # print("first layer:",pyramid_layers[7].size())
     # print("2th layer:",pyramid_layers[4].size())
     return pyramid_layers[:4], pyramid_layers[4:]
 
+def alexnet(img_a, img_b, img_a_tens, img_b_tens):
+    print("**********************************A L E X N E T**********************************")
+    print(type(img_a_tens) )
+    model = models.alexnet(pretrained=True).eval()
+    print(model)
+    pyramid_layers = []
+    layer_list = [model.features[1], model.features[4], model.features[7], model.features[9], model.features[11]]
+    def extract_feature(module, input, output):
+        pyramid_layers.append(output)
+
+    for layer in layer_list:
+        # print("layer type:", type(layer))
+        layer.register_forward_hook(extract_feature)
+
+    model(img_a_tens)
+    model(img_b_tens)
+
+    for layer in pyramid_layers: # debug, check layers
+        print("ith layer @ relu: ", layer.size())
+    return pyramid_layers[:5], pyramid_layers[5:]
+
+
 def main():
     img_a = Image.open("../input/dog1.jpg")
     img_b = Image.open("../input/dog2.jpg")
-    img_a_tens = img_preprocess(img_a)
-    img_b_tens = img_preprocess(img_b)
+    img_a_tens = img_preprocess_VGG(img_a)
+    img_b_tens = img_preprocess_VGG(img_b)
 
     feat_a_19, feat_b_19 = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
-    # print("vgg 19 types:", type(feat_a_19))
-    # now lets do the same for resnet_18
-    to_tensor = transforms.ToTensor()
-    scaler = transforms.Scale((224, 224))
-    normalize = transforms.Compose([
-        transforms.ToPILImage(),
-        transforms.Resize(224),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=(0.485, 0.456, 0.406),
-                             std=(0.229, 0.224, 0.225))])
+    print("vgg 19 types:", type(feat_a_19))
     
-    img_a_tens = Variable(normalize(to_tensor(scaler(img_a))).unsqueeze(0))
-    img_b_tens = Variable(normalize(to_tensor(scaler(img_b))).unsqueeze(0))
+    img_a_tens = image_preprocess_resnet(img_a)
+    img_b_tens = image_preprocess_resnet(img_b)
     feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
-    # print(feat_a_18[0] )
+    print(feat_a_18[0] )
+    img_a_tens = image_preprocess_alexnet(img_a)
+    img_b_tens = image_preprocess_alexnet(img_b)
+    feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
 
 if __name__ == "__main__":
     main()
