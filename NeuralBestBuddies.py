@@ -20,8 +20,8 @@ class Neuron:
         self.c = col
     def __repr__(self):
         return "(" + str(self.r) + ", " + str(self.c) + ")"
-
 # returns the index of the max arg of tensor
+# function 2
 def feat_arg_max(feat):
     f = feat.clone().detach().numpy()
     idx = np.unravel_index(f.argmax(), f.shape)
@@ -223,41 +223,41 @@ def vgg19_model(img_a, img_b, img_a_tens, img_b_tens):
         pyramid_layers.append(output)
 
     relu_idx = [3, 8, 17, 26, 35]
+    print("vgg19: ", model.features[0] )
     for j in relu_idx:
         model.features[j].register_forward_hook(extract_feature)
 
     model(img_a_tens)
     model(img_b_tens)
-
+    print("first layer:",pyramid_layers[0].size())
+    print("5th layer:",pyramid_layers[1].size())
     return pyramid_layers[:5], pyramid_layers[5:]
 
 def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
     model = models.resnet18(pretrained=True).eval()
-    layer = model._modules.get('avgpool')
+    bb = list(model.layer1.children())[1]
+    print("*********",type(bb))
+    relu = bb.relu()
+    print(type(relu))
+    print("layer one children", len(list(model.layer1.children())) )
+    layer_list = [model.layer1.relu, model.layer2, model.layer3, model.layer4]
+    print("resnet 18:", layer_list[0])
     pyramid_layers = []
-    my_embedding = torch.zeros(512)
     # Define a function that will copy the output of a layer
-    def copy_data(m, i, o):
-        my_embedding.copy_(o.data.squeeze())
-    # Attach that function to our selected layer
-    h = layer.register_forward_hook(copy_data)
+    def extract_feature(module, input, output):
+        # output.data.squeeze()
+        pyramid_layers.append(output)
+    # Attach that function to our selected layers
+    for layer in layer_list:
+        layer.register_forward_hook(extract_feature)
+
     # Run the model on our transformed image
     model(img_a_tens)
     model(img_b_tens)
-    # Detach our copy function from the layer
-    h.remove()
     # Return the feature vector
-
-    # def extract_feature(module, input, output):
-    #     pyramid_layers.append(output)
-    # # not sure what this is? 
-    # relu_idx = [3, 8, 17, 26, 35]
-    # for j in relu_idx:
-    #     model.features[j].register_forward_hook(extract_feature)
-    # return pyramid_layers[:5], pyramid_layers[5:]
-
-
-    return my_embedding[:5], my_embedding[5:]
+    print("first layer:",pyramid_layers[0].size())
+    print("5th layer:",pyramid_layers[1].size())
+    return pyramid_layers[:4], pyramid_layers[4:]
 
 def main():
     img_a = Image.open("../input/dog1.jpg")
@@ -266,6 +266,7 @@ def main():
     img_b_tens = img_preprocess(img_b)
 
     feat_a_19, feat_b_19 = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
+    # print("vgg 19 types:", type(feat_a_19))
     # now lets do the same for resnet_18
     to_tensor = transforms.ToTensor()
     scaler = transforms.Scale((224, 224))
@@ -276,12 +277,10 @@ def main():
         transforms.Normalize(mean=(0.485, 0.456, 0.406),
                              std=(0.229, 0.224, 0.225))])
     
-    scaler(img_a)
-    to_tensor(scaler(img_a))
-    normalize(to_tensor(scaler(img_a)))
     img_a_tens = Variable(normalize(to_tensor(scaler(img_a))).unsqueeze(0))
     img_b_tens = Variable(normalize(to_tensor(scaler(img_b))).unsqueeze(0))
-    feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
+    feat_a_101, feat_b_101 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
+    # print(feat_a_18[0] )
 
 if __name__ == "__main__":
     main()
