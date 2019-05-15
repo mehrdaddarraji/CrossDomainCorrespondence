@@ -59,22 +59,25 @@ def NBB(P, Q):
 # returns a list of candidates which are nearest neighbors: [(p,q)]
 def get_candidates(qs_for_ps, ps_for_qs):
     # to reverse contents in the tuple, facilitates comparison
-    ps_for_qs_new = [tuple(reversed(tup)) for tup in ps_for_qs]
+    # iterates through list of all pairs
     candidates = []
-    # for i range(len(qs_for_ps))
-    #     if qs_for_ps[i] is in ps_for_qs_new
-    #         candidates.append(qs_for_ps[i])
+    for i in range(len(qs_for_ps)):
+        # one pair
+        for j in range(len(qs_for_ps[i])):
+            p = ps_for_qs[i]
+            if qs_for_ps[i][j] in p:
+                candidates.append(qs_for_ps[i][j])
     return candidates
 
 # neighborhood function for P
 def neighborhood(P_over_L2, p_i, p_j, neigh_size):
-    
+
     neigh_rad = int((neigh_size - 1) / 2)
     P = P_over_L2.clone().permute(1, 2, 0)
     #print(" ", P.size()[0], P.size()[1], P.size()[2])
     #print(P.size()[0])
     P_padded = torch.zeros((P.size()[0] + 2 * neigh_rad, P.size()[1] + 2 * neigh_rad, P.size()[2]))
-    
+
     P_padded[neigh_rad: -neigh_rad, neigh_rad: -neigh_rad] = P
     P_padded = P_padded[p_i: p_i + 2 * neigh_rad + 1, p_j: p_j + 2 * neigh_rad + 1].permute(2, 0, 1)
     #print(" ", p_j, p_j + 2 * neigh_rad + 1)
@@ -84,46 +87,46 @@ def neighborhood(P_over_L2, p_i, p_j, neigh_size):
 # takes in P and Q tensors, and the neighborhood size(5 or 3)
 # returns list of nearest neighbors of P
 def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
-    # region points to calculate 
+    # region points to calculate
     top_left_p = P_region[0]
     bottom_right_p = P_region[1]
-    
+
     # info from P tensor
     num_chan = P_tensor.shape[1]
     img_w = P_tensor.shape[2]
     img_h = P_tensor.shape[3]
-    
+
     # list of nearest neighbors of P
     nearest_buddies = []
-    
+
     # L2 of P and Q
     P = P_tensor.clone().squeeze()
     P_L2 = P.permute(1, 2, 0).norm(2, 2)
-    
+
     Q = Q_tensor.clone().squeeze()
     Q_L2 = Q.permute(1, 2 ,0).norm(2, 2)
-    
+
     # similarity metric
     P_over_L2 = P.div(P_L2)
     Q_over_L2 = Q.div(Q_L2)
     #print( P_over_L2.shape)
-    
+
     neigh_rad = int((neigh_size - 1) / 2)
     for p_i in range(top_left_p.r, bottom_right_p.r):
         for p_j in range(top_left_p.c, bottom_right_p.c):
             conv = torch.nn.Conv2d(num_chan, 1, neigh_size, padding=neigh_rad)
             conv.train(False)
-            
+
             p_neigh = neighborhood(P_over_L2, p_i, p_j, neigh_size)
             #print(" ", p_neigh.shape, neigh_size)
             conv.weight.data.copy_(p_neigh.unsqueeze(0))
-            
+
             p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().detach().numpy()
             q_idx = np.unravel_index(p_cross_corrs.argmax(), p_cross_corrs.shape)
             p = Neuron(p_i, p_j)
             q = Neuron(q_idx[0], q_idx[1])
             nearest_buddies.append([p, q])
-            
+
     return nearest_buddies
 
 # P and Q should be feature maps for a given layer
@@ -172,7 +175,7 @@ def RefineSearchRegions(prev_layer_nbbs, receptive_field_radius, feat_width, fea
         feat_width: width of feature map for current layer
         feat_height: height of feature map for current layer
     Returns:
-        Ps: List containing new P's 
+        Ps: List containing new P's
             P = ((r1, c1), (r2, c2))
             where (r1, c1) represent the top left of the search region
             and (r2, c2) represent the bottom right of the search region
@@ -181,36 +184,36 @@ def RefineSearchRegions(prev_layer_nbbs, receptive_field_radius, feat_width, fea
             where (r1, c1) represent the top left of the search region
             and (r2, c2) represent the bottom right of the search region
     """
-    
+
     Ps = []
     Qs = []
-    
+
     for p, q in prev_layer_nbbs:
-       
+
         # Top left of search window for P
         P_r1 = max(2 * p.r - receptive_field_radius / 2, 0)
         P_c2 = max(2 * p.c - receptive_field_radius / 2, 0)
         P_bottom_left = Neuron(P_r1, P_c1)
-                  
+
         # Bottom right of search window for P
         P_r2 = min(2 * p.r + receptive_field_radius / 2, feat_width)
         P_c2 = min(2 * p.c + receptive_field_radius / 2, feat_height)
         P_top_right = Neuron(P_r2, P_c2)
-        
+
         # Top left of search window for Q
         Q_r1 = max(2 * q.r - receptive_field_radius / 2, 0)
         Q_c1 = max(2 * q.c - receptive_field_radius / 2, 0)
         Q_bottom_left = Neuron(Q_c1, Q_r1)
-        
-        # Bottom right of search window for Q                     
+
+        # Bottom right of search window for Q
         Q_r2 = min(2 * q.r + receptive_field_radius / 2, feat_width)
         Q_c2 = min(2 * q.c + receptive_field_radius / 2, feat_height)
         Q_top_right = Neuron(Q_c2, Q_r2)
-        
+
         # Append P and Q to lists
         Ps.append((P_bottom_left, P_top_right))
         Qs.append((Q_bottom_left, Q_top_right))
-    
+
     return (Ps, Qs)
 
 # Image preprocessing
@@ -254,7 +257,7 @@ def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
     pyramid_layers = []
     def extract_feature(module, input, output):
         pyramid_layers.append(output)
-    # not sure what this is? 
+    # not sure what this is?
     relu_idx = [3, 8, 17, 26, 35]
     for j in relu_idx:
         model.features[j].register_forward_hook(extract_feature)
@@ -265,7 +268,7 @@ def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
     return pyramid_layers[:5], pyramid_layers[5:]
 
 
-    
+
 
 def main():
     img_a = Image.open("../input/dog1.jpg")
