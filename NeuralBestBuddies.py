@@ -3,9 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable as V
-from torchvision.models import vgg19
+import torchvision.models as models
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as F
+import tensorflow as tf
 import numpy as np
 from PIL import Image
 
@@ -213,7 +214,10 @@ def img_preprocess(img):
 # takes in image a, image b, normalized tensor of image a, normalized tensor of img b
 # returns 5 layered feature map of img a and img b
 def vgg19_model(img_a, img_b, img_a_tens, img_b_tens):
-    model = vgg19(pretrained=True).eval()
+    print("**********************************V G G 1 9**********************************")
+    print("img_a size: ", img_a.size)
+    print("img a t-size: ", tf.shape(img_a_tens))
+    model = models.vgg19(pretrained=True).eval()
     pyramid_layers = []
 
     def extract_feature(module, input, output):
@@ -226,34 +230,35 @@ def vgg19_model(img_a, img_b, img_a_tens, img_b_tens):
 
     model(img_a_tens)
     model(img_b_tens)
-    print("first layer:",pyramid_layers[0].size())
-    print("5th layer:",pyramid_layers[1].size())
+    for layer in pyramid_layers:
+        print("ith layer @ relu: ", layer.size())
     return pyramid_layers[:5], pyramid_layers[5:]
 
 def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
+    print("**********************************R E S N E T 18**********************************")
+    print("img_a size: ", img_a.size)
+    print("img a t-size: ", tf.shape(img_a_tens))
     model = models.resnet18(pretrained=True).eval()
-    bb = list(model.layer1.children())[1]
-    print("*********",type(bb))
-    relu = bb.relu()
-    print(type(relu))
-    print("layer one children", len(list(model.layer1.children())) )
-    layer_list = [model.layer1.relu, model.layer2, model.layer3, model.layer4]
-    print("resnet 18:", layer_list[0])
+    # bb = list(model.layer1.children())[1] used to index into the right block of the layer, then add a .relu to get the relu
+    layer_list = [list(model.layer1.children())[1].relu, list(model.layer2.children())[1].relu, list(model.layer3.children())[1].relu, list(model.layer4.children())[1].relu]
     pyramid_layers = []
-    # Define a function that will copy the output of a layer
     def extract_feature(module, input, output):
-        # output.data.squeeze()
         pyramid_layers.append(output)
     # Attach that function to our selected layers
     for layer in layer_list:
+        # print("layer type:", type(layer))
         layer.register_forward_hook(extract_feature)
 
     # Run the model on our transformed image
     model(img_a_tens)
     model(img_b_tens)
+    # remove duplicates..... (not sure why we had them in the first place.)
+    pyramid_layers = [ pyramid_layers[idx] for idx in range(0, len(pyramid_layers), 2)]
     # Return the feature vector
-    print("first layer:",pyramid_layers[0].size())
-    print("5th layer:",pyramid_layers[1].size())
+    for layer in pyramid_layers:
+        print("ith layer @ relu: ", layer.size())
+    # print("first layer:",pyramid_layers[7].size())
+    # print("2th layer:",pyramid_layers[4].size())
     return pyramid_layers[:4], pyramid_layers[4:]
 
 def main():
