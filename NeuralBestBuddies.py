@@ -65,6 +65,7 @@ def get_candidates(qs_for_ps, ps_for_qs):
         # one pair
         for j in range(len(qs_for_ps[i])):
             p = ps_for_qs[i]
+            p = p[::-1]
             if qs_for_ps[i][j] in p:
                 candidates.append(qs_for_ps[i][j])
     return candidates
