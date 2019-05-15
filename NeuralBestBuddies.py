@@ -65,7 +65,7 @@ def get_candidates(qs_for_ps, ps_for_qs):
     #     if qs_for_ps[i] is in ps_for_qs_new
     #         candidates.append(qs_for_ps[i])
     return candidates
-    
+
 # neighborhood function for P
 def neighborhood(P_over_L2, p_i, p_j, neigh_size):
     
@@ -77,8 +77,8 @@ def neighborhood(P_over_L2, p_i, p_j, neigh_size):
     
     P_padded[neigh_rad: -neigh_rad, neigh_rad: -neigh_rad] = P
     P_padded = P_padded[p_i: p_i + 2 * neigh_rad + 1, p_j: p_j + 2 * neigh_rad + 1].permute(2, 0, 1)
-    print(" ", p_j, p_j + 2 * neigh_rad + 1)
-    print(P_padded.shape)
+    #print(" ", p_j, p_j + 2 * neigh_rad + 1)
+    #print(P_padded.shape)
     return P_padded
 
 # takes in P and Q tensors, and the neighborhood size(5 or 3)
@@ -106,20 +106,23 @@ def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
     # similarity metric
     P_over_L2 = P.div(P_L2)
     Q_over_L2 = Q.div(Q_L2)
-    print( P_over_L2.shape)
+    #print( P_over_L2.shape)
+    
     neigh_rad = int((neigh_size - 1) / 2)
-    for p_i in range(top_left_p.r, bottom_right_p.r + 1):
-        for p_j in range(top_left_p.c, bottom_right_p.c + 1):
+    for p_i in range(top_left_p.r, bottom_right_p.r):
+        for p_j in range(top_left_p.c, bottom_right_p.c):
             conv = torch.nn.Conv2d(num_chan, 1, neigh_size, padding=neigh_rad)
             conv.train(False)
             
             p_neigh = neighborhood(P_over_L2, p_i, p_j, neigh_size)
-            print(" ", p_neigh.shape, neigh_size)
+            #print(" ", p_neigh.shape, neigh_size)
             conv.weight.data.copy_(p_neigh.unsqueeze(0))
             
-            p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().view(-1)
-            
-            nearest_buddies.append(p_cross_corrs.argmax())
+            p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().detach().numpy()
+            q_idx = np.unravel_index(p_cross_corrs.argmax(), p_cross_corrs.shape)
+            p = Neuron(p_i, p_j)
+            q = Neuron(q_idx[0], q_idx[1])
+            nearest_buddies.append([p, q])
             
     return nearest_buddies
 
