@@ -64,19 +64,13 @@ def normalize_feature_map(feat_map):
     """
     Assigns each neuron a value in the range [0, 1] to the
     given feature map
-<<<<<<< HEAD
-=======
-
->>>>>>> 65b7f1d6b65734e889fcc25d8f344931603ce4d0
+    
     Args: 
         feat_map: feature map tensor
        
     Returns:
         norm_feat_map: normalized feature map
-<<<<<<< HEAD
-=======
 
->>>>>>> 65b7f1d6b65734e889fcc25d8f344931603ce4d0
     """ 
 
     feat_min = feat_map.min()
@@ -90,10 +84,7 @@ def meaningful_NBBs(feat_a, feat_b, candidates, act_threshold):
     """
     Use normalized activation maps to seek NNBS which have high activation
     values
-<<<<<<< HEAD
-=======
 
->>>>>>> 65b7f1d6b65734e889fcc25d8f344931603ce4d0
     Args: 
         feat_a: feature map tensor for image a
         feat_b: feature map tensor for image b
@@ -208,7 +199,7 @@ def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
             nearest_buddies.append(p_cross_corrs.argmax())
             
     return nearest_buddies
-    
+
 # P and Q should be feature maps for a given layer
 # returns the common appearance C(P, Q)
 def common_appearance(P, Q, region_p, region_q):
