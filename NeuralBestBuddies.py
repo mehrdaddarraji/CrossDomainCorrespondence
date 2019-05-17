@@ -95,6 +95,8 @@ def meaningful_NBBs(feat_a, feat_b, candidates, act_threshold):
             values
         
     """
+    feat_a = feat_a.squeeze().permute(1, 2, 0)
+    feat_b = feat_b.squeeze().permute(1, 2, 0)
 
     num_candidate_pairs = len(candidates)
 
