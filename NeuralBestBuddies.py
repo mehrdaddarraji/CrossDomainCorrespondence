@@ -107,12 +107,10 @@ def meaningful_NBBs(feat_a, feat_b, candidates, act_threshold):
         p_coords = candidates[i][0]
         p_max_activation_indx = feat_arg_max(feat_a[p_coords.r][p_coords.c])
         p_max_activation = feat_a[p_coords.r][p_coords.c][p_max_activation_indx]
-        print(p_max_activation.item())
         
         q_coords = candidates[i][1]
         q_max_activation_indx = feat_arg_max(feat_a[q_coords.r][q_coords.c])
         q_max_activation = feat_a[q_coords.r][q_coords.c][q_max_activation_indx]
-        print(q_max_activation.item())
 
         if (q_max_activation > act_threshold and p_max_activation > act_threshold):
             meaningful_buddies.append(candidates[i])
