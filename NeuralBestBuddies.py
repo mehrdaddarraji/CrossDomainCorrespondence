@@ -76,21 +76,6 @@ def get_candidates(P_nearest, Q_nearest):
                 
     return candidates
 
-# neighborhood function for P
-def neighborhood(P_over_L2, p_i, p_j, neigh_size):
-
-    neigh_rad = int((neigh_size - 1) / 2)
-    P = P_over_L2.clone().permute(1, 2, 0)
-    #print(" ", P.size()[0], P.size()[1], P.size()[2])
-    #print(P.size()[0])
-    P_padded = torch.zeros((P.size()[0] + 2 * neigh_rad, P.size()[1] + 2 * neigh_rad, P.size()[2]))
-
-    P_padded[neigh_rad: -neigh_rad, neigh_rad: -neigh_rad] = P
-    P_padded = P_padded[p_i: p_i + 2 * neigh_rad + 1, p_j: p_j + 2 * neigh_rad + 1].permute(2, 0, 1)
-    #print(" ", p_j, p_j + 2 * neigh_rad + 1)
-    #print(P_padded.shape)
-    return P_padded
-
 def normalize_feature_map(feat_map):
     """
     Assigns each neuron a value in the range [0, 1] to the
@@ -113,45 +98,67 @@ def normalize_feature_map(feat_map):
     return norm_feat_map
 
 
-# returns nearest neighbor of neuron p ∈ P in the set Q under a similarity metric
-# formula 1 from the paper
-def nearest_neighbor(commapp_PQ, commapp_QP, P_region, Q_region):
+# neighborhood function for P
+def neighborhood(P_over_L2, p_i, p_j, neigh_size):
+    
+    neigh_rad = int((neigh_size - 1) / 2)
+    P = P_over_L2.clone().permute(1, 2, 0)
+    #print(" ", P.size()[0], P.size()[1], P.size()[2])
+    #print(P.size()[0])
+    P_padded = torch.zeros((P.size()[0] + 2 * neigh_rad, P.size()[1] + 2 * neigh_rad, P.size()[2]))
+    
+    P_padded[neigh_rad: -neigh_rad, neigh_rad: -neigh_rad] = P
+    P_padded = P_padded[p_i: p_i + 2 * neigh_rad + 1, p_j: p_j + 2 * neigh_rad + 1].permute(2, 0, 1)
+    #print(" ", p_j, p_j + 2 * neigh_rad + 1)
+    #print(P_padded.shape)
+    return P_padded
+
+# takes in P and Q tensors, and the neighborhood size(5 or 3)
+# returns list of nearest neighbors of P
+def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
     # region points to calculate 
     top_left_p = P_region[0]
     bottom_right_p = P_region[1]
-    top_left_q = Q_region[0]
-    bottom_right_q = Q_region[1]
     
-    # common appearance
-    commapp_PQ_norm = L2_norm(commapp_PQ)
-    commapp_QP_norm = L2_norm(commapp_QP)
+    # info from P tensor
+    num_chan = P_tensor.shape[1]
+    img_w = P_tensor.shape[2]
+    img_h = P_tensor.shape[3]
     
-    # list of potential buddies
-    buddies = []
+    # list of nearest neighbors of P
+    nearest_buddies = []
     
-    for p_i in range(top_left_p.r, bottom_right_p.r + 1):
-        for p_j in range(top_left_p.c, bottom_right_p.c + 1):
+    # L2 of P and Q
+    P = P_tensor.clone().squeeze()
+    P_L2 = P.permute(1, 2, 0).norm(2, 2)
+    
+    Q = Q_tensor.clone().squeeze()
+    Q_L2 = Q.permute(1, 2 ,0).norm(2, 2)
+    
+    # similarity metric
+    P_over_L2 = P.div(P_L2)
+    Q_over_L2 = Q.div(Q_L2)
+    #print( P_over_L2.shape)
+    
+    neigh_rad = int((neigh_size - 1) / 2)
+    for p_i in range(top_left_p.r, bottom_right_p.r):
+        for p_j in range(top_left_p.c, bottom_right_p.c):
+            conv = torch.nn.Conv2d(num_chan, 1, neigh_size, padding=neigh_rad)
+            conv.train(False)
             
-            # calculating similarity metrix list
-            # formula 3
-            sim_met = torch.zeros((commapp_QP.shape[0], commapp_QP.shape[1], 
-                                   commapp_QP.shape[2], commapp_QP.shape[3]))
-            for q_i in range(top_left_q.r, bottom_right_q.r + 1):
-                for q_j in range(top_left_q.c, bottom_right_q.c + 1):
-                    sim_met[:, :, q_i, q_j] = commapp_PQ[:, :, p_i, p_j] * commapp_QP[:, :, q_i, q_j]
-                    # print(sim_met)
-                    sim_met[:, :, q_i, q_j] /= commapp_QP_norm[:, :, p_i, p_j] * commapp_QP_norm[:, :, q_i, q_j]
-                    # print(sim_met)
-                    
-            # saving the neuron with best similarity metric value as potential buddies
-            # formula 2
-            idx = feat_arg_max(sim_met)
-            print(idx)
-            q = Neuron(idx[2], idx[3])
-            p = Neuron(p_i, p_j)
-            buddies.append((p, q))
+            p_neigh = neighborhood(P_over_L2, p_i, p_j, neigh_size)
+            #print(" ", p_neigh.shape, neigh_size)
+            conv.weight.data.copy_(p_neigh.unsqueeze(0))
             
-    return buddies
+            p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().view(-1)
+            #p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().detach().numpy()
+            #q_idx = np.unravel_index(p_cross_corrs.argmax(), p_cross_corrs.shape)
+            #p = Neuron(p_i, p_j)
+            #q = Neuron(q_idx[0], q_idx[1])
+            #nearest_buddies.append(q_idx)
+            nearest_buddies.append(p_cross_corrs.argmax())
+            
+    return nearest_buddies
 
 def meaningful_buddies(P, Q, candidates):
     feat_a_normalized = normalize_feature_map(P)
