@@ -9,6 +9,7 @@ import torchvision.transforms.functional as F
 import tensorflow as tf
 import numpy as np
 from PIL import Image
+from matplotlib import pyplot as plt
 
 from torch.autograd import Variable
 # Neuron class, takes in row and col coordinates
@@ -324,6 +325,30 @@ def main():
     img_a_tens = image_preprocess_alexnet(img_a)
     img_b_tens = image_preprocess_alexnet(img_b)
     feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
+
+    
+    plt.figure(1)
+    plot_neurons([], img_a)
+    plt.figure(2)
+    plot_neurons([], img_b)
+    plt.show()
+
+def plot_neurons(n_list, img):
+    # Mock data
+    # n1 = Neuron(1, 2)
+    # n2 = Neuron(150, 150)
+    # n3 = Neuron(10, -2)
+    # n4 = Neuron(-1, -3)
+    # n_list = [[n1, n2], [n3, n4]]
+    img_plot = plt.imshow(img)
+    
+    for l in n_list:
+        for neuron in l:
+            print("plotting", neuron.r, neuron.c)
+            # figure(1)
+            # plt.scatter(neuron.r, neuron.c)
+            # figure(2)
+            plt.scatter(neuron.r, neuron.c)
 
 if __name__ == "__main__":
     main()
