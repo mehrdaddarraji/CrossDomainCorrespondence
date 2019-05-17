@@ -54,7 +54,70 @@ def NBB(P, Q):
     candidates = get_candidates(qs_for_ps, ps_for_qs)
     # check the activations and find the most meaningful buddies
     # must return in format p[], q[]
-    return meaningful_buddies(candidates)
+
+    feat_a_norm = normalize_feature_map(feat_a)
+    feat_b_norm = normalize_feature_map(feat_b)
+
+    return meaningful_NBBs(feat_a_norm, feat_b_norm, candidates, .05)
+
+def normalize_feature_map(feat_map):
+    """
+    Assigns each neuron a value in the range [0, 1] to the
+    given feature map
+
+    Args: 
+        feat_map: feature map tensor
+       
+    Returns:
+        norm_feat_map: normalized feature map
+
+    """ 
+
+    feat_min = feat_map.min()
+    feat_max = feat_map.max()
+    
+    feat_map_norm = (feat_map - feat_min) / (feat_max - feat_min)
+
+    return feat_map_norm
+
+def meaningful_NBBs(feat_a, feat_b, candidates, act_threshold):
+    """
+    Use normalized activation maps to seek NNBS which have high activation
+    values
+
+    Args: 
+        feat_a: feature map tensor for image a
+        feat_b: feature map tensor for image b
+        candiates: list of neural best buddies candiates
+        act_threshold: empirically determined activation threshold
+       
+    Returns:
+        meanigful_buddies: list of neural best buddes with high activation
+            values
+        
+    """
+    feat_a = feat_a.squeeze().permute(1, 2, 0)
+    feat_b = feat_b.squeeze().permute(1, 2, 0)
+
+    num_candidate_pairs = len(candidates)
+
+    meaningful_buddies = []
+
+    for i in range (num_candidate_pairs):
+
+        p_coords = candidates[i][0]
+        p_max_activation_indx = feat_arg_max(feat_a[p_coords.r][p_coords.c])
+        p_max_activation = feat_a[p_coords.r][p_coords.c][p_max_activation_indx]
+        
+        q_coords = candidates[i][1]
+        q_max_activation_indx = feat_arg_max(feat_a[q_coords.r][q_coords.c])
+        q_max_activation = feat_a[q_coords.r][q_coords.c][q_max_activation_indx]
+
+        if (q_max_activation > act_threshold and p_max_activation > act_threshold):
+            meaningful_buddies.append(candidates[i])
+            
+    return meaningful_buddies
+
 
 # returns a list of candidates which are nearest neighbors: [(p,q)]
 def get_candidates(qs_for_ps, ps_for_qs):
@@ -141,7 +204,7 @@ def common_appearance(P, Q, region_p, region_q):
     p_to_q[:, :, top_left_p.x:bottom_right_p.x, top_left_p.y:bottom_right_p.y] = common_app
     return p_to_q
 
-def RefineSearchRegions(prev_layer_nbbs, receptive_field_radius, feat_width, feat_height):
+def refine_search_regions(prev_layer_nbbs, receptive_field_radius, feat_width, feat_height):
     """
     Return refined search regions for every p and q in the previous' layer nbbs
 
@@ -161,6 +224,7 @@ def RefineSearchRegions(prev_layer_nbbs, receptive_field_radius, feat_width, fea
             Q = ((r1, c1), (r2, c2))
             where (r1, c1) represent the top left of the search region
             and (r2, c2) represent the bottom right of the search region
+    
     """
 
     Ps = []
