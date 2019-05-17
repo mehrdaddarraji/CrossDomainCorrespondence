@@ -148,7 +148,7 @@ def nearest_neighbor(commapp_PQ, commapp_QP, P_region, Q_region):
             idx = feat_arg_max(sim_met)
             print(idx)
             q = Neuron(idx[2], idx[3])
-            p = Neuron(p_x, p_y)
+            p = Neuron(p_i, p_j)
             buddies.append((p, q))
             
     return buddies
