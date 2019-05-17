@@ -112,6 +112,47 @@ def normalize_feature_map(feat_map):
 
     return norm_feat_map
 
+
+# returns nearest neighbor of neuron p ∈ P in the set Q under a similarity metric
+# formula 1 from the paper
+def nearest_neighbor(commapp_PQ, commapp_QP, P_region, Q_region):
+    # region points to calculate 
+    top_left_p = P_region[0]
+    bottom_right_p = P_region[1]
+    top_left_q = Q_region[0]
+    bottom_right_q = Q_region[1]
+    
+    # common appearance
+    commapp_PQ_norm = L2_norm(commapp_PQ)
+    commapp_QP_norm = L2_norm(commapp_QP)
+    
+    # list of potential buddies
+    buddies = []
+    
+    for p_i in range(top_left_p.r, bottom_right_p.r + 1):
+        for p_j in range(top_left_p.c, bottom_right_p.c + 1):
+            
+            # calculating similarity metrix list
+            # formula 3
+            sim_met = torch.zeros((commapp_QP.shape[0], commapp_QP.shape[1], 
+                                   commapp_QP.shape[2], commapp_QP.shape[3]))
+            for q_i in range(top_left_q.r, bottom_right_q.r + 1):
+                for q_j in range(top_left_q.c, bottom_right_q.c + 1):
+                    sim_met[:, :, q_i, q_j] = commapp_PQ[:, :, p_i, p_j] * commapp_QP[:, :, q_i, q_j]
+                    # print(sim_met)
+                    sim_met[:, :, q_i, q_j] /= commapp_QP_norm[:, :, p_i, p_j] * commapp_QP_norm[:, :, q_i, q_j]
+                    # print(sim_met)
+                    
+            # saving the neuron with best similarity metric value as potential buddies
+            # formula 2
+            idx = feat_arg_max(sim_met)
+            print(idx)
+            q = Neuron(idx[2], idx[3])
+            p = Neuron(p_x, p_y)
+            buddies.append((p, q))
+            
+    return buddies
+
 def meaningful_buddies(P, Q, candidates):
     feat_a_normalized = normalize_feature_map(P)
     feat_b_normalized = normalize_feature_map(Q)
