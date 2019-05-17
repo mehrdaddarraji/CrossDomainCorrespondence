@@ -57,17 +57,23 @@ def NBB(P, Q):
     return meaningful_buddies(candidates)
 
 # returns a list of candidates which are nearest neighbors: [(p,q)]
-def get_candidates(qs_for_ps, ps_for_qs):
-    # to reverse contents in the tuple, facilitates comparison
-    # iterates through list of all pairs
+def get_candidates(P_nearest, Q_nearest):
     candidates = []
-    for i in range(len(qs_for_ps)):
-        # one pair
-        for j in range(len(qs_for_ps[i])):
-            p = ps_for_qs[i]
-            p = p[::-1]
-            if qs_for_ps[i][j] in p:
-                candidates.append(qs_for_ps[i][j])
+
+    pq_size = int(math.sqrt(len(P_nearest)))
+    for i in range(len(P_nearest)):
+        if(i == Q_nearest[P_nearest[i]]):
+            p_c = math.floor(1.0 * i / pq_size)
+            p_r = i - (p_c * pq_size)
+            p = Neuron(p_r, p_c)
+            
+            j = P_nearest[i]
+            q_c = math.floor(1.0 * j / pq_size)
+            q_r = j - (q_c * pq_size)
+            q = Neuron(int(q_r), q_c)
+            
+            candidates.append([p, q])
+                
     return candidates
 
 # neighborhood function for P
@@ -85,50 +91,34 @@ def neighborhood(P_over_L2, p_i, p_j, neigh_size):
     #print(P_padded.shape)
     return P_padded
 
-# takes in P and Q tensors, and the neighborhood size(5 or 3)
-# returns list of nearest neighbors of P
-def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
-    # region points to calculate
-    top_left_p = P_region[0]
-    bottom_right_p = P_region[1]
+def normalize_feature_map(feat_map):
+    """
+    Assigns each neuron a value in the range [0, 1] to the
+    given feature map
+    Args: 
+        feat_map: feature map tensor
+       
+    Returns:
+        norm_feat_map: normalized feature map
+    """ 
 
-    # info from P tensor
-    num_chan = P_tensor.shape[1]
-    img_w = P_tensor.shape[2]
-    img_h = P_tensor.shape[3]
+    feat_map_L2 = feat_map.clone().squeeze().permute(1, 2, 0).norm(2, 2)
 
-    # list of nearest neighbors of P
-    nearest_buddies = []
+    feat_map_L2_min = feat_map_L2.min()
+    feat_map_L2_max = feat_map_L2.max()
 
-    # L2 of P and Q
-    P = P_tensor.clone().squeeze()
-    P_L2 = P.permute(1, 2, 0).norm(2, 2)
+    norm_feat_map = (feat_map_L2.view(-1) - feat_map_L2_min) 
+    norm_feat_map /= (feat_map_L2_max - feat_map_L2_min)
 
-    Q = Q_tensor.clone().squeeze()
-    Q_L2 = Q.permute(1, 2 ,0).norm(2, 2)
+    return norm_feat_map
 
-    # similarity metric
-    P_over_L2 = P.div(P_L2)
-    Q_over_L2 = Q.div(Q_L2)
-    #print( P_over_L2.shape)
-
-    neigh_rad = int((neigh_size - 1) / 2)
-    for p_i in range(top_left_p.r, bottom_right_p.r):
-        for p_j in range(top_left_p.c, bottom_right_p.c):
-            conv = torch.nn.Conv2d(num_chan, 1, neigh_size, padding=neigh_rad)
-            conv.train(False)
-
-            p_neigh = neighborhood(P_over_L2, p_i, p_j, neigh_size)
-            #print(" ", p_neigh.shape, neigh_size)
-            conv.weight.data.copy_(p_neigh.unsqueeze(0))
-
-            p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().detach().numpy()
-            q_idx = np.unravel_index(p_cross_corrs.argmax(), p_cross_corrs.shape)
-            p = Neuron(p_i, p_j)
-            q = Neuron(q_idx[0], q_idx[1])
-            nearest_buddies.append([p, q])
-
-    return nearest_buddies
+def meaningful_buddies(P, Q, candidates):
+    feat_a_normalized = normalize_feature_map(P)
+    feat_b_normalized = normalize_feature_map(Q)
+    
+    
+    
+    return
 
 # P and Q should be feature maps for a given layer
 # returns the common appearance C(P, Q)
