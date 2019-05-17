@@ -3,15 +3,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable as V
-# from torchvision.models import vgg19
-# from torchvision.models import resnet18
-# from torchvision.models import inceptionv3
 import torchvision.models as models
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as F
+import tensorflow as tf
 import numpy as np
 from PIL import Image
+from matplotlib import pyplot as plt
 
+from torch.autograd import Variable
 # Neuron class, takes in row and col coordinates
 class Neuron:
     def __init__(self, row, col):
@@ -21,6 +21,7 @@ class Neuron:
         return "(" + str(self.r) + ", " + str(self.c) + ")"
 
 # returns the index of the max arg of tensor
+# function 2
 def feat_arg_max(feat):
     f = feat.clone().detach().numpy()
     idx = np.unravel_index(f.argmax(), f.shape)
@@ -54,12 +55,73 @@ def NBB(P, Q):
     candidates = get_candidates(qs_for_ps, ps_for_qs)
     # check the activations and find the most meaningful buddies
     # must return in format p[], q[]
-    return meaningful_buddies(candidates)
+
+    feat_a_norm = normalize_feature_map(feat_a)
+    feat_b_norm = normalize_feature_map(feat_b)
+
+    return meaningful_NBBs(feat_a_norm, feat_b_norm, candidates, .05)
+
+def normalize_feature_map(feat_map):
+    """
+    Assigns each neuron a value in the range [0, 1] to the
+    given feature map
+    Args: 
+        feat_map: feature map tensor
+       
+    Returns:
+        norm_feat_map: normalized feature map
+    """ 
+
+    feat_min = feat_map.min()
+    feat_max = feat_map.max()
+    
+    feat_map_norm = (feat_map - feat_min) / (feat_max - feat_min)
+
+    return feat_map_norm
+
+def meaningful_NBBs(feat_a, feat_b, candidates, act_threshold):
+    """
+    Use normalized activation maps to seek NNBS which have high activation
+    values
+    Args: 
+        feat_a: feature map tensor for image a
+        feat_b: feature map tensor for image b
+        candiates: list of neural best buddies candiates
+        act_threshold: empirically determined activation threshold
+       
+    Returns:
+        meanigful_buddies: list of neural best buddes with high activation
+            values
+        
+    """
+    feat_a = feat_a.squeeze().permute(1, 2, 0)
+    feat_b = feat_b.squeeze().permute(1, 2, 0)
+
+    num_candidate_pairs = len(candidates)
+
+    meaningful_buddies = []
+
+    for i in range (num_candidate_pairs):
+
+        p_coords = candidates[i][0]
+        p_max_activation_indx = feat_arg_max(feat_a[p_coords.r][p_coords.c])
+        p_max_activation = feat_a[p_coords.r][p_coords.c][p_max_activation_indx]
+        
+        q_coords = candidates[i][1]
+        q_max_activation_indx = feat_arg_max(feat_a[q_coords.r][q_coords.c])
+        q_max_activation = feat_a[q_coords.r][q_coords.c][q_max_activation_indx]
+
+        if (q_max_activation > act_threshold and p_max_activation > act_threshold):
+            meaningful_buddies.append(candidates[i])
+            
+    return meaningful_buddies
+
 
 # returns a list of candidates which are nearest neighbors: [(p,q)]
 def get_candidates(P_nearest, Q_nearest):
+    # to reverse contents in the tuple, facilitates comparison
+    # iterates through list of all pairs
     candidates = []
-
     pq_size = int(math.sqrt(len(P_nearest)))
     for i in range(len(P_nearest)):
         if(i == Q_nearest[P_nearest[i]]):
@@ -76,41 +138,17 @@ def get_candidates(P_nearest, Q_nearest):
                 
     return candidates
 
-def normalize_feature_map(feat_map):
-    """
-    Assigns each neuron a value in the range [0, 1] to the
-    given feature map
-    Args: 
-        feat_map: feature map tensor
-       
-    Returns:
-        norm_feat_map: normalized feature map
-    """ 
-
-    feat_map_L2 = feat_map.clone().squeeze().permute(1, 2, 0).norm(2, 2)
-
-    feat_map_L2_min = feat_map_L2.min()
-    feat_map_L2_max = feat_map_L2.max()
-
-    norm_feat_map = (feat_map_L2.view(-1) - feat_map_L2_min) 
-    norm_feat_map /= (feat_map_L2_max - feat_map_L2_min)
-
-    return norm_feat_map
-
-
 # neighborhood function for P
 def neighborhood(P_over_L2, p_i, p_j, neigh_size):
     
     neigh_rad = int((neigh_size - 1) / 2)
     P = P_over_L2.clone().permute(1, 2, 0)
-    #print(" ", P.size()[0], P.size()[1], P.size()[2])
-    #print(P.size()[0])
+
     P_padded = torch.zeros((P.size()[0] + 2 * neigh_rad, P.size()[1] + 2 * neigh_rad, P.size()[2]))
     
     P_padded[neigh_rad: -neigh_rad, neigh_rad: -neigh_rad] = P
     P_padded = P_padded[p_i: p_i + 2 * neigh_rad + 1, p_j: p_j + 2 * neigh_rad + 1].permute(2, 0, 1)
-    #print(" ", p_j, p_j + 2 * neigh_rad + 1)
-    #print(P_padded.shape)
+
     return P_padded
 
 # takes in P and Q tensors, and the neighborhood size(5 or 3)
@@ -160,14 +198,6 @@ def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
             
     return nearest_buddies
 
-def meaningful_buddies(P, Q, candidates):
-    feat_a_normalized = normalize_feature_map(P)
-    feat_b_normalized = normalize_feature_map(Q)
-    
-    
-    
-    return
-
 # P and Q should be feature maps for a given layer
 # returns the common appearance C(P, Q)
 def common_appearance(P, Q, region_p, region_q):
@@ -187,7 +217,7 @@ def common_appearance(P, Q, region_p, region_q):
     P_copy_reg = P_copy[:, top_left_p.x:bottom_right_p.x, top_left_p.y:bottom_right_p.y]
     Q_copy_reg = Q_copy[:, top_left_q.x:bottom_right_q.x, top_left_q.y:bottom_right_q.y]
 
-    # have to squeeze to get rid of the unecessary dimension
+    # have to squeeze to remove first dimension: [C, H, W]
     mean_p = P_copy_reg.mean(2).mean(1)
     mean_q = Q_copy_reg.mean(2).mean(1)
     mean_m = (mean_p + mean_q) / 2
@@ -202,10 +232,9 @@ def common_appearance(P, Q, region_p, region_q):
     p_to_q[:, :, top_left_p.x:bottom_right_p.x, top_left_p.y:bottom_right_p.y] = common_app
     return p_to_q
 
-def RefineSearchRegions(prev_layer_nbbs, receptive_field_radius, feat_width, feat_height):
+def refine_search_regions(prev_layer_nbbs, receptive_field_radius, feat_width, feat_height):
     """
     Return refined search regions for every p and q in the previous' layer nbbs
-
     Args:
         prev_layer_nbbs: Previous' layer (l-1) neural best buddies, represented
             as neurons using the Neuron class
@@ -222,6 +251,7 @@ def RefineSearchRegions(prev_layer_nbbs, receptive_field_radius, feat_width, fea
             Q = ((r1, c1), (r2, c2))
             where (r1, c1) represent the top left of the search region
             and (r2, c2) represent the bottom right of the search region
+    
     """
 
     Ps = []
@@ -256,7 +286,7 @@ def RefineSearchRegions(prev_layer_nbbs, receptive_field_radius, feat_width, fea
     return (Ps, Qs)
 
 # Image preprocessing
-def img_preprocess(img):
+def img_preprocess_VGG(img):
     # VGGNet was trained on ImageNet where images are normalized by mean=[0.485, 0.456, 0.406]
     # and std=[0.229, 0.224, 0.225].
     # We use the same normalization statistics here.
@@ -272,10 +302,38 @@ def img_preprocess(img):
 
     return img_tens
 
+def image_preprocess_resnet(img):
+    # now lets do the same for resnet_18
+    to_tensor = transforms.ToTensor()
+    scaler = transforms.Scale((224, 224))
+    normalize = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                             std=(0.229, 0.224, 0.225))])
+    img_tens = Variable(normalize(to_tensor(scaler(img))).unsqueeze(0))
+    return img_tens
+
+def image_preprocess_alexnet(img):
+    to_tensor = transforms.ToTensor()
+    scaler = transforms.Scale((299, 299))
+    normalize = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize(299),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                             std=(0.229, 0.224, 0.225))])
+    img_tens = Variable(normalize(to_tensor(scaler(img))).unsqueeze(0))
+    return img_tens
+
 # vgg model
 # takes in image a, image b, normalized tensor of image a, normalized tensor of img b
 # returns 5 layered feature map of img a and img b
 def vgg19_model(img_a, img_b, img_a_tens, img_b_tens):
+    print("**********************************V G G 1 9**********************************")
+    print("img_a size: ", img_a.size)
+    print("img a t-size: ", tf.shape(img_a_tens))
     model = models.vgg19(pretrained=True).eval()
     pyramid_layers = []
 
@@ -283,41 +341,105 @@ def vgg19_model(img_a, img_b, img_a_tens, img_b_tens):
         pyramid_layers.append(output)
 
     relu_idx = [3, 8, 17, 26, 35]
+    print("vgg19: ", model.features[0] )
     for j in relu_idx:
         model.features[j].register_forward_hook(extract_feature)
 
     model(img_a_tens)
     model(img_b_tens)
-
+    for layer in pyramid_layers:
+        print("ith layer @ relu: ", layer.size())
     return pyramid_layers[:5], pyramid_layers[5:]
 
 def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
-    resnet18 = models.resnet18(pretrained=True).eval()
+    print("**********************************R E S N E T 18**********************************")
+    print("img_a size: ", img_a.size)
+    print("img a t-size: ", tf.shape(img_a_tens))
+    model = models.resnet18(pretrained=True).eval()
+    # bb = list(model.layer1.children())[1] used to index into the right block of the layer, then add a .relu to get the relu
+    layer_list = [list(model.layer1.children())[1].relu, list(model.layer2.children())[1].relu, list(model.layer3.children())[1].relu, list(model.layer4.children())[1].relu]
     pyramid_layers = []
     def extract_feature(module, input, output):
         pyramid_layers.append(output)
-    # not sure what this is?
-    relu_idx = [3, 8, 17, 26, 35]
-    for j in relu_idx:
-        model.features[j].register_forward_hook(extract_feature)
+    # Attach that function to our selected layers
+    for layer in layer_list:
+        # print("layer type:", type(layer))
+        layer.register_forward_hook(extract_feature)
+
+    # Run the model on our transformed image
+    model(img_a_tens)
+    model(img_b_tens)
+    # remove duplicates..... (not sure why we had them in the first place.)
+    pyramid_layers = [ pyramid_layers[idx] for idx in range(0, len(pyramid_layers), 2)]
+    # Return the feature vector
+    for layer in pyramid_layers: # debug, check layers
+        print("ith layer @ relu: ", layer.size())
+    # print("first layer:",pyramid_layers[7].size())
+    # print("2th layer:",pyramid_layers[4].size())
+    return pyramid_layers[:4], pyramid_layers[4:]
+
+def alexnet(img_a, img_b, img_a_tens, img_b_tens):
+    print("**********************************A L E X N E T**********************************")
+    print(type(img_a_tens) )
+    model = models.alexnet(pretrained=True).eval()
+    print(model)
+    pyramid_layers = []
+    layer_list = [model.features[1], model.features[4], model.features[7], model.features[9], model.features[11]]
+    def extract_feature(module, input, output):
+        pyramid_layers.append(output)
+
+    for layer in layer_list:
+        # print("layer type:", type(layer))
+        layer.register_forward_hook(extract_feature)
 
     model(img_a_tens)
     model(img_b_tens)
 
+    for layer in pyramid_layers: # debug, check layers
+        print("ith layer @ relu: ", layer.size())
     return pyramid_layers[:5], pyramid_layers[5:]
-
-
 
 
 def main():
     img_a = Image.open("../input/dog1.jpg")
     img_b = Image.open("../input/dog2.jpg")
-    img_a_tens = img_preprocess(img_a)
-    img_b_tens = img_preprocess(img_b)
+    img_a_tens = img_preprocess_VGG(img_a)
+    img_b_tens = img_preprocess_VGG(img_b)
 
     feat_a_19, feat_b_19 = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
-    # now lets do the same for resnet_18
+    print("vgg 19 types:", type(feat_a_19))
+    
+    img_a_tens = image_preprocess_resnet(img_a)
+    img_b_tens = image_preprocess_resnet(img_b)
     feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
+    print(feat_a_18[0] )
+    img_a_tens = image_preprocess_alexnet(img_a)
+    img_b_tens = image_preprocess_alexnet(img_b)
+    feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
+
+    
+    plt.figure(1)
+    plot_neurons([], img_a)
+    plt.figure(2)
+    plot_neurons([], img_b)
+    plt.show()
+
+def plot_neurons(n_list, img):
+    # Mock data
+    # n1 = Neuron(1, 2)
+    # n2 = Neuron(150, 150)
+    # n3 = Neuron(10, -2)
+    # n4 = Neuron(-1, -3)
+    # n_list = [[n1, n2], [n3, n4]]
+    img_plot = plt.imshow(img)
+    
+    for l in n_list:
+        for neuron in l:
+            print("plotting", neuron.r, neuron.c)
+            # figure(1)
+            # plt.scatter(neuron.r, neuron.c)
+            # figure(2)
+            plt.scatter(neuron.r, neuron.c)
 
 if __name__ == "__main__":
     main()
