@@ -204,36 +204,40 @@ def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
     
 # P and Q should be feature maps for a given layer
 # returns the common appearance C(P, Q)
-def common_appearance(P, Q, region_p, region_q):
-    top_left_p = region_p[0]
-    bottom_right_p = region_p[1]
-    top_left_q = region_q[0]
-    bottom_right_q = region_q[1]
-
+def common_appearance(P, Q, region_p_list, region_q_list):
     # copy of the whole P - going to put common_app in specific region on this later
     p_to_q = P.clone()
-
     # changed to - [chann, height, width]
     P_copy = P.squeeze().clone()
     Q_copy = Q.squeeze().clone()
+    
+    for ind in range(len(region_p_list)):
+        region_p = region_p_list[ind]
+        region_q = region_q_list[ind]
 
-    # these only represent P, Q in the region (AKA trimmed P, and Q)
-    P_copy_reg = P_copy[:, top_left_p.r:bottom_right_p.r, top_left_p.c:bottom_right_p.c]
-    Q_copy_reg = Q_copy[:, top_left_q.r:bottom_right_q.r, top_left_q.c:bottom_right_q.c]
+        top_left_p = region_p[0]
+        bottom_right_p = region_p[1]
+        top_left_q = region_q[0]
+        bottom_right_q = region_q[1]
 
-    # have to squeeze to remove first dimension: [C, H, W]
-    mean_p = P_copy_reg.mean(2).mean(1)
-    mean_q = Q_copy_reg.mean(2).mean(1)
-    mean_m = (mean_p + mean_q) / 2
-    sig_p = P_copy_reg.std(2).std(1)
-    sig_q = Q_copy_reg.std(2).std(1)
-    sig_m = (sig_p + sig_q) / 2
-    # have to permute, in order to be able to subtract the mean correctly
-    temp = (P_copy_reg.permute(1,2,0) - mean_p)
-    # common_app should be the size of the region we are doing style transfer on
-    common_app = (temp/ sig_p * sig_m + mean_m).permute(2,0,1)
+        # these only represent P, Q in the region (AKA trimmed P, and Q)
+        P_copy_reg = P_copy[:, top_left_p.r:bottom_right_p.r, top_left_p.c:bottom_right_p.c]
+        Q_copy_reg = Q_copy[:, top_left_q.r:bottom_right_q.r, top_left_q.c:bottom_right_q.c]
 
-    p_to_q[:, :, top_left_p.r:bottom_right_p.r, top_left_p.c:bottom_right_p.c] = common_app
+        # have to squeeze to remove first dimension: [C, H, W]
+        mean_p = P_copy_reg.mean(2).mean(1)
+        mean_q = Q_copy_reg.mean(2).mean(1)
+        mean_m = (mean_p + mean_q) / 2
+        sig_p = P_copy_reg.std(2).std(1)
+        sig_q = Q_copy_reg.std(2).std(1)
+        sig_m = (sig_p + sig_q) / 2
+        # have to permute, in order to be able to subtract the mean correctly
+        temp = (P_copy_reg.permute(1,2,0) - mean_p)
+        # common_app should be the size of the region we are doing style transfer on
+        common_app = (temp/ sig_p * sig_m + mean_m).permute(2,0,1)
+
+        p_to_q[:, :, top_left_p.r:bottom_right_p.r, top_left_p.c:bottom_right_p.c] = common_app
+        
     return p_to_q
 
 def refine_search_regions(prev_layer_nbbs, receptive_field_radius, feat_width, feat_height):
