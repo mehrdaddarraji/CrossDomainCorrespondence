@@ -37,18 +37,17 @@ def L2_norm(A_tensor):
 # returns 2 lists of touples, one for P and one for Q
 # each touple is a neuron p, with is corresponding NN q
 # p_list, and q_list is a list of touples where each touple contains touples of coordinates [((x1, y1), (x2, y2))]
-def NBB(P, Q):
-    common_p_q = common_appearance(P, Q)
-    common_q_p = common_appearance(Q, P)
-
-    # get d()
+def NBB(C_A, C_B, R, neighbor_size):
+    
+    P_region = R[0]
+    R_region = R[1]
 
     # iterate through the p's in common_p_q to find its neighbors in Q, (p, q)
     # pass in list of neurons [p1, p2, q1, q2]
     # p1 - bottom left, p2 bottom right, same for q
-    qs_for_ps = nearest_neighbor(common_p_q, common_q_p, P_region, Q_region)
+    qs_for_ps = nearest_neighbor(C_A, C_B, P_region, neighbor_size)
     # iterate through the q's in common_q_p to find its neighbors in P, (q, p)
-    ps_for_qs = nearest_neighbor(common_q_p, common_p_q, Q_region, P_region)
+    ps_for_qs = nearest_neighbor(C_B, C_A, Q_region, neighbor_size)
     # returns in (p, q) format
     # get the candidates that are nearest neighbors to each other
     candidates = get_candidates(qs_for_ps, ps_for_qs)
@@ -156,10 +155,7 @@ def neighborhood(P_over_L2, p_i, p_j, neigh_size):
 # takes in P and Q tensors, and the neighborhood size(5 or 3)
 # returns list of nearest neighbors of P
 def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
-    # region points to calculate
-    top_left_p = P_region[0]
-    bottom_right_p = P_region[1]
-
+  
     # info from P tensor
     num_chan = P_tensor.shape[1]
     img_w = P_tensor.shape[2]
@@ -181,25 +177,31 @@ def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
     #print( P_over_L2.shape)
 
     neigh_rad = int((neigh_size - 1) / 2)
-    for p_i in range(top_left_p.r, bottom_right_p.r):
-        for p_j in range(top_left_p.c, bottom_right_p.c):
-            conv = torch.nn.Conv2d(num_chan, 1, neigh_size, padding=neigh_rad)
-            conv.train(False)
 
-            p_neigh = neighborhood(P_over_L2, p_i, p_j, neigh_size)
-            #print(" ", p_neigh.shape, neigh_size)
-            conv.weight.data.copy_(p_neigh.unsqueeze(0))
+    for region in P_region: 
+        # region points to calculate 
+        top_left_p = P_region[0]
+        bottom_right_p = P_region[1]
+        
+        for p_i in range(top_left_p.r, bottom_right_p.r):
+            for p_j in range(top_left_p.c, bottom_right_p.c):
+                conv = torch.nn.Conv2d(num_chan, 1, neigh_size, padding=neigh_rad)
+                conv.train(False)
 
-            p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().view(-1)
-            #p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().detach().numpy()
-            #q_idx = np.unravel_index(p_cross_corrs.argmax(), p_cross_corrs.shape)
-            #p = Neuron(p_i, p_j)
-            #q = Neuron(q_idx[0], q_idx[1])
-            #nearest_buddies.append(q_idx)
-            nearest_buddies.append(p_cross_corrs.argmax())
+                p_neigh = neighborhood(P_over_L2, p_i, p_j, neigh_size)
+                #print(" ", p_neigh.shape, neigh_size)
+                conv.weight.data.copy_(p_neigh.unsqueeze(0))
 
+                p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().view(-1)
+                #p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().detach().numpy()
+                #q_idx = np.unravel_index(p_cross_corrs.argmax(), p_cross_corrs.shape)
+                #p = Neuron(p_i, p_j)
+                #q = Neuron(q_idx[0], q_idx[1])
+                #nearest_buddies.append(q_idx)
+                nearest_buddies.append(p_cross_corrs.argmax())
+                
     return nearest_buddies
-
+    
 # P and Q should be feature maps for a given layer
 # returns the common appearance C(P, Q)
 def common_appearance(P, Q, region_p, region_q):
@@ -401,6 +403,22 @@ def alexnet(img_a, img_b, img_a_tens, img_b_tens):
         print("ith layer @ relu: ", layer.size())
     return pyramid_layers[:5], pyramid_layers[5:]
 
+def plot_neurons(n_list, i, img):
+    # Mock data
+    # n1 = Neuron(1, 2)
+    # n2 = Neuron(150, 150)
+    # n3 = Neuron(10, -2)
+    # n4 = Neuron(-1, -3)
+    # n_list = [[n1, n2], [n3, n4]]
+    img_plot = plt.imshow(img)
+    
+    for pair in n_list:
+        neuron = pair[i]
+        print("plotting", neuron.r, neuron.c)
+        # figure(1)
+        # plt.scatter(neuron.r, neuron.c)
+        # figure(2)
+        plt.scatter(neuron.r, neuron.c)
 
 def main():
     img_a = Image.open("../input/dog1.jpg")
@@ -409,39 +427,55 @@ def main():
     img_b_tens = img_preprocess_VGG(img_b)
 
     feat_a_19, feat_b_19 = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
-    print("vgg 19 types:", type(feat_a_19))
 
-    img_a_tens = image_preprocess_resnet(img_a)
-    img_b_tens = image_preprocess_resnet(img_b)
-    feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
-    print(feat_a_18[0] )
-    img_a_tens = image_preprocess_alexnet(img_a)
-    img_b_tens = image_preprocess_alexnet(img_b)
-    feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
+    # print("vgg 19 types:", type(feat_a_19))
 
+    # img_a_tens = image_preprocess_resnet(img_a)
+    # img_b_tens = image_preprocess_resnet(img_b)
+    # feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
+    # print(feat_a_18[0] )
+    # img_a_tens = image_preprocess_alexnet(img_a)
+    # img_b_tens = image_preprocess_alexnet(img_b)
+    # feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
+    
+    receptive_field_rs = [6, 6, 4, 4]
+    neigh_sizes = [3, 3, 5, 5, 5]
+    C_A = feat_a_19[0]
+    C_B = feat_b_19[0]
+    
+    top_left_p = Neuron(0, 0)
+    bottom_right_p = Neuron(C_A.shape[2], C_A.shape[2])
+    
+    top_left_q = Neuron(0, 0)
+    bottom_right_q = Neuron(C_B.shape[2], C_B.shape[2])
+    
+    R = [(top_left_p, bottom_right_p), (top_left_p, top_left_q)]
+    nbbs = None
+   
+    for l in range (1, 5):
+        
+        print ("------ Layer ", 6 - l, " ------")
 
+        feat_a = feat_a_19[l]
+        feat_b = feat_b_19[l]
+
+        nbbs = NBB(C_A, C_B, R, neigh_sizes[l])
+        print(nbbs)
+
+        if l > 1:
+
+            feat_width = feat_a.shape[2]
+            feat_height = feat_b.shape[3]
+            R = refine_search_regions(nbbs, receptive_field_r[l], feat_width, feat_height)
+
+            C_A = common_appearance(feat_a, feat_b, R[0], R[1])
+            C_B = common_appearance(feat_b, feat_a, R[1], R[0])
+    
     plt.figure(1)
-    plot_neurons([], img_a)
+    plot_neurons(nbbs, 0, img_a)
     plt.figure(2)
-    plot_neurons([], img_b)
+    plot_neurons(nbbs, 1, img_b)
     plt.show()
-
-def plot_neurons(n_list, img):
-    # Mock data
-    # n1 = Neuron(1, 2)
-    # n2 = Neuron(150, 150)
-    # n3 = Neuron(10, -2)
-    # n4 = Neuron(-1, -3)
-    # n_list = [[n1, n2], [n3, n4]]
-    img_plot = plt.imshow(img)
-
-    for l in n_list:
-        for neuron in l:
-            print("plotting", neuron.r, neuron.c)
-            # figure(1)
-            # plt.scatter(neuron.r, neuron.c)
-            # figure(2)
-            plt.scatter(neuron.r, neuron.c)
 
 if __name__ == "__main__":
     main()
