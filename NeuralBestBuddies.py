@@ -9,6 +9,7 @@ import torchvision.transforms.functional as F
 import tensorflow as tf
 import numpy as np
 from PIL import Image
+from matplotlib import pyplot as plt
 
 from torch.autograd import Variable
 # Neuron class, takes in row and col coordinates
@@ -311,19 +312,49 @@ def alexnet(img_a, img_b, img_a_tens, img_b_tens):
 def main():
     img_a = Image.open("../input/dog1.jpg")
     img_b = Image.open("../input/dog2.jpg")
-    img_a_tens = img_preprocess_VGG(img_a)
-    img_b_tens = img_preprocess_VGG(img_b)
+    # img_a_tens = img_preprocess_VGG(img_a)
+    # img_b_tens = img_preprocess_VGG(img_b)
 
-    feat_a_19, feat_b_19 = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
-    print("vgg 19 types:", type(feat_a_19))
+    # feat_a_19, feat_b_19 = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
+    # print("vgg 19 types:", type(feat_a_19))
     
-    img_a_tens = image_preprocess_resnet(img_a)
-    img_b_tens = image_preprocess_resnet(img_b)
-    feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
-    print(feat_a_18[0] )
-    img_a_tens = image_preprocess_alexnet(img_a)
-    img_b_tens = image_preprocess_alexnet(img_b)
-    feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
+    # img_a_tens = image_preprocess_resnet(img_a)
+    # img_b_tens = image_preprocess_resnet(img_b)
+    # feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
+    # print(feat_a_18[0] )
+    # img_a_tens = image_preprocess_alexnet(img_a)
+    # img_b_tens = image_preprocess_alexnet(img_b)
+    # feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
+
+    
+    plt.figure(1)
+    plot_neurons([], img_a)
+    plt.figure(2)
+    plot_neurons([], img_b)
+    plt.show()
+
+def plot_neurons(n_list, img):
+    # n1 = Neuron(1, 2)
+    # n2 = Neuron(150, 150)
+    # n3 = Neuron(10, -2)
+    # n4 = Neuron(-1, -3)
+    # n_list = [[n1, n2], [n3, n4]]
+    # p_list = []
+    # figure()
+    img_plot = plt.imshow(img)
+    # figure()
+    # im_b_plot = plt.imshow(mi)
+    
+    for l in n_list:
+        for neuron in l:
+            print("plotting", neuron.r, neuron.c)
+            # figure(1)
+            # plt.scatter(neuron.r, neuron.c)
+            # figure(2)
+            plt.scatter(neuron.r, neuron.c)
+
+    # plt.plot(n_list)
+    # plt.show()
 
 if __name__ == "__main__":
     main()
