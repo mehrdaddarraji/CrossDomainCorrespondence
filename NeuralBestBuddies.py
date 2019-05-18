@@ -380,6 +380,9 @@ def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
     # Run the model on our transformed image
     model(img_a_tens)
     model(img_b_tens)
+    pyramid_layers.insert(0, pyramid_layers[0])
+    pyramid_layers.append(pyramid_layers[len(pyramid_layers) - 1 ])
+    # py
     # remove duplicates..... (not sure why we had them in the first place.)
     pyramid_layers = [ pyramid_layers[idx] for idx in range(0, len(pyramid_layers), 2)]
     # Return the feature vector
@@ -387,7 +390,7 @@ def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
         print("ith layer @ relu: ", layer.size())
     # print("first layer:",pyramid_layers[7].size())
     # print("2th layer:",pyramid_layers[4].size())
-    return pyramid_layers[:4], pyramid_layers[4:]
+    return pyramid_layers[:5], pyramid_layers[5:]
 
 def alexnet(img_a, img_b, img_a_tens, img_b_tens):
     print("**********************************A L E X N E T**********************************")
