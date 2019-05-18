@@ -326,7 +326,6 @@ def main():
     img_b_tens = image_preprocess_alexnet(img_b)
     feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
 
-    
     plt.figure(1)
     plot_neurons([], img_a)
     plt.figure(2)
