@@ -46,10 +46,11 @@ def NBB(C_A, C_B, R, neighbor_size):
     # iterate through the p's in common_p_q to find its neighbors in Q, (p, q)
     # pass in list of neurons [p1, p2, q1, q2]
     # p1 - bottom left, p2 bottom right, same for q
-#     print("P_nearest")
+    #     print("P_nearest")
     qs_for_ps = nearest_neighbor(C_A, C_B, P_region, neighbor_size)
     # iterate through the q's in common_q_p to find its neighbors in P, (q, p)
-#     print("Q_nearest")
+     #     print("Q_nearest")
+
     ps_for_qs = nearest_neighbor(C_B, C_A, Q_region, neighbor_size)
     # returns in (p, q) format
     # get the candidates that are nearest neighbors to each other
@@ -66,10 +67,12 @@ def normalize_feature_map(feat_map):
     """
     Assigns each neuron a value in the range [0, 1] to the
     given feature map
+
     Args:
         feat_map: feature map tensor
     Returns:
         norm_feat_map: normalized feature map
+
     """
 
     feat_min = feat_map.min()
@@ -83,14 +86,22 @@ def meaningful_NBBs(C_A, C_B, candidates, act_threshold):
     """
     Use normalized activation maps to seek NNBS which have high activation
     values
+
     Args:
         feat_a: feature map tensor for image a
         feat_b: feature map tensor for image b
         candiates: list of neural best buddies candiates
         act_threshold: empirically determined activation threshold
+
     Returns:
         meanigful_buddies: list of neural best buddes with high activation
             values
+
+
+    Returns:
+        meanigful_buddies: list of neural best buddes with high activation
+            values
+
     """
     feat_a = C_A.clone().squeeze().permute(1, 2, 0)
     feat_b = C_B.clone().squeeze().permute(1, 2, 0)
@@ -105,6 +116,7 @@ def meaningful_NBBs(C_A, C_B, candidates, act_threshold):
 
         p_coords = candidates[i][0]
         q_coords = candidates[i][1]
+        
         if ((p_coords.r < feat_a.shape[0] and p_coords.c < feat_a.shape[0]) and (q_coords.r < feat_b.shape[0] and q_coords.r < feat_b.shape[0])):
             p_max_activation_indx = feat_arg_max(feat_a[p_coords.r, p_coords.c, :])
             p_max_activation = feat_a[p_coords.r][p_coords.c][p_max_activation_indx]
@@ -192,6 +204,7 @@ def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
         # region points to calculate 
         top_left_p = P_region[r][0]
         bottom_right_p = P_region[r][1]
+
         
         for p_i in range(top_left_p.r, bottom_right_p.r):
             for p_j in range(top_left_p.c, bottom_right_p.c):
@@ -203,6 +216,7 @@ def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
                 conv.weight.data.copy_(p_neigh.unsqueeze(0))
 
                 p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).clone().squeeze().view(-1)
+
                 #p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().detach().numpy()
                 #q_idx = np.unravel_index(p_cross_corrs.argmax(), p_cross_corrs.shape)
                 #p = Neuron(p_i, p_j)
@@ -218,8 +232,10 @@ def common_appearance(P, Q, region_p_list, region_q_list):
     # copy of the whole P - going to put common_app in specific region on this later
     p_to_q = P.clone()
     # changed to - [chann, height, width]
+
     P_copy = P.clone().squeeze()
     Q_copy = Q.clone().squeeze()
+
     
     for ind in range(len(region_p_list)):
         region_p = region_p_list[ind]
@@ -229,17 +245,17 @@ def common_appearance(P, Q, region_p_list, region_q_list):
         bottom_right_p = region_p[1]
         top_left_q = region_q[0]
         bottom_right_q = region_q[1]
-
         
-#         print(P_copy.shape)
-#         print(Q_copy.shape)
-#         print("tl p: ", top_left_p)
-#         print("tl: q: ", top_left_q)
-#         print("br p: ", bottom_right_p)
-#         print("br q: ", bottom_right_q)
+        #         print(P_copy.shape)
+        #         print(Q_copy.shape)
+        #         print("tl p: ", top_left_p)
+        #         print("tl: q: ", top_left_q)
+        #         print("br p: ", bottom_right_p)
+        #         print("br q: ", bottom_right_q)
         # these only represent P, Q in the region (AKA trimmed P, and Q)
         P_copy_reg = P_copy[:, int(top_left_p.r):int(bottom_right_p.r), int(top_left_p.c):int(bottom_right_p.c)]
         Q_copy_reg = Q_copy[:, int(top_left_q.r):int(bottom_right_q.r), int(top_left_q.c):int(bottom_right_q.c)]
+
 
         # have to squeeze to remove first dimension: [C, H, W]
         mean_p = P_copy_reg.mean(2).mean(1)
@@ -276,6 +292,7 @@ def refine_search_regions(prev_layer_nbbs, receptive_field_radius, feat_width, f
             Q = ((r1, c1), (r2, c2))
             where (r1, c1) represent the top left of the search region
             and (r2, c2) represent the bottom right of the search region
+            
     """
 
     Ps = []
@@ -491,6 +508,7 @@ def main():
             feat_height = feat_b.shape[3]
             R = refine_search_regions(nbbs[len(nbbs) - 1], receptive_field_rs[l - 1], feat_width, feat_height)
 
+
             C_A = common_appearance(feat_a, feat_b, R[0], R[1])
             C_B = common_appearance(feat_b, feat_a, R[1], R[0])
     
@@ -498,6 +516,7 @@ def main():
     plot_neurons(nbbs[0], 0, img_a)
     plt.figure(2)
     plot_neurons(nbbs[0], 1, img_b)
+
     plt.show()
 
 if __name__ == "__main__":
