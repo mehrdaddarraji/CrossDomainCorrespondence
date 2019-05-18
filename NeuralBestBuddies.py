@@ -47,14 +47,18 @@ def NBB(C_A, C_B, R, neighbor_size):
     # pass in list of neurons [p1, p2, q1, q2]
     # p1 - bottom left, p2 bottom right, same for q
     #     print("P_nearest")
+    print("Nearest neighbor start")
     qs_for_ps = nearest_neighbor(C_A, C_B, P_region, neighbor_size)
+    print("Nearest neighbor midpoint")
     # iterate through the q's in common_q_p to find its neighbors in P, (q, p)
      #     print("Q_nearest")
-
     ps_for_qs = nearest_neighbor(C_B, C_A, Q_region, neighbor_size)
+    print("Nearest neighbor end")
     # returns in (p, q) format
     # get the candidates that are nearest neighbors to each other
+    print("Candidates start")
     candidates = get_candidates(qs_for_ps, ps_for_qs)
+    print("Candidates end")
     # check the activations and find the most meaningful buddies
     # must return in format p[], q[]
 
@@ -117,24 +121,24 @@ def meaningful_NBBs(C_A, C_B, candidates, act_threshold):
         p_coords = candidates[i][0]
         q_coords = candidates[i][1]
         
-        if ((p_coords.r < feat_a.shape[0] and p_coords.c < feat_a.shape[0]) and (q_coords.r < feat_b.shape[0] and q_coords.r < feat_b.shape[0])):
-            p_max_activation_indx = feat_arg_max(feat_a[p_coords.r, p_coords.c, :])
-            p_max_activation = feat_a[p_coords.r][p_coords.c][p_max_activation_indx]
+#         if ((p_coords.r < feat_a.shape[0] and p_coords.c < feat_a.shape[0]) and (q_coords.r < feat_b.shape[0] and q_coords.r < feat_b.shape[0])):
+        p_max_activation_indx = feat_arg_max(feat_a[p_coords.r, p_coords.c, :])
+        p_max_activation = feat_a[p_coords.r][p_coords.c][p_max_activation_indx]
 
 
 #             print("p idx: ", p_max_activation_indx)
 #             print("p ac: ", p_max_activation)
 
 
-            q_max_activation_indx = feat_arg_max(feat_b[q_coords.r, q_coords.c, :])
-            q_max_activation = feat_b[q_coords.r][q_coords.c][q_max_activation_indx]
+        q_max_activation_indx = feat_arg_max(feat_b[q_coords.r, q_coords.c, :])
+        q_max_activation = feat_b[q_coords.r][q_coords.c][q_max_activation_indx]
 
 
 #             print("q idx: ", q_max_activation_indx)
 #             print("q ac: ",q_max_activation)
 
-            if (q_max_activation > act_threshold and p_max_activation > act_threshold):
-                meaningful_buddies.append(candidates[i])
+        if (q_max_activation > act_threshold and p_max_activation > act_threshold):
+            meaningful_buddies.append(candidates[i])
 
     return meaningful_buddies
 
@@ -147,6 +151,7 @@ def get_candidates(P_nearest, Q_nearest):
     pq_size = int(math.sqrt(len(P_nearest)))
     for i in range(len(P_nearest)):
         if(P_nearest[i] < len(Q_nearest) and i == Q_nearest[P_nearest[i]]):
+#         if(i == Q_nearest[P_nearest[i]]):
             p_c = math.floor(1.0 * i / pq_size)
             p_r = i - (p_c * pq_size)
             p = Neuron(p_r, p_c)
@@ -178,6 +183,7 @@ def neighborhood(P_over_L2, p_i, p_j, neigh_size):
 def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
   
     # info from P tensor
+#     print(P_tensor.size())
     num_chan = P_tensor.shape[1]
     img_w = P_tensor.shape[2]
     img_h = P_tensor.shape[3]
@@ -199,7 +205,7 @@ def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
 
     neigh_rad = int((neigh_size - 1) / 2)
     
-    print("P_region: ", P_region)
+#     print("P_region: ", P_region)
     for r in range(len(P_region)): 
         # region points to calculate 
         top_left_p = P_region[r][0]
@@ -454,11 +460,29 @@ def plot_neurons(n_list, i, img):
     
     for pair in n_list:
         neuron = pair[i]
-        print("plotting", neuron.r, neuron.c)
+#         print("plotting", neuron.r, neuron.c)
         # figure(1)
         # plt.scatter(neuron.r, neuron.c)
         # figure(2)
         plt.scatter(neuron.r, neuron.c)
+
+def scale_nbbs(nbbs, layer):
+    
+    scale_factor = int(math.pow(2, 4 - layer))
+    scaled_nbbs = []
+     
+    for p, q in nbbs:
+
+        p.r = p.r * scale_factor;
+        p.c = p.c * scale_factor;
+
+        q.r = q.r * scale_factor;
+        q.c = q.c * scale_factor;
+        
+        scaled_nbbs.append((p, q))
+    
+    return scaled_nbbs
+
 
 def main():
     img_a = Image.open("../input/dog1.jpg")
@@ -478,11 +502,13 @@ def main():
     # img_b_tens = image_preprocess_alexnet(img_b)
     # feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
     
+    layer = 1
+    
     receptive_field_rs = [4, 4, 6, 6]
     neigh_sizes = [5, 5, 5, 3, 3]
 
-    C_A = feat_a_19[4]
-    C_B = feat_b_19[4]
+    C_A = feat_a_19[layer]
+    C_B = feat_b_19[layer]
     
     top_left_p = Neuron(0, 0)
     bottom_right_p = Neuron(C_A.shape[2] - 1, C_A.shape[2] - 1)
@@ -494,30 +520,50 @@ def main():
     R = [[(top_left_p, bottom_right_p)], [(top_left_q, bottom_right_q)]]
     nbbs = []
    
-    for l in range (4, 3, -1):
+    for l in range (layer, -1, -1):
         
         print ("------ Layer ", l + 1, " ------")
 
         feat_a = feat_a_19[l]
         feat_b = feat_b_19[l]
-
-        nbbs.append(NBB(C_A, C_B, R, neigh_sizes[l]))
+        
+        print(feat_a.size())
+        print(feat_b.size())
+        
+        layer_nbbs = NBB(C_A, C_B, R, neigh_sizes[l])
+        scaled_nbbs = scale_nbbs(layer_nbbs, l)
+#         scaled_nbbs = layer_nbbs
+        nbbs.append(scaled_nbbs)
+        
         print("nbbs: ", nbbs)
+        
+        plt.figure(1)
+        plot_neurons(nbbs[layer - l], 0, img_a)
+        plt.figure(2)
+        plot_neurons(nbbs[layer - l], 1, img_b)
+        plt.show()
 
         if l > 0:
-
-            feat_width = feat_a.shape[2]
-            feat_height = feat_b.shape[3]
+            
+#             print(feat_a_19[l - 1].size())
+#             print(feat_b_19[l - 1].size())
+            
+            feat_width = feat_a_19[l - 1].shape[2]
+            feat_height = feat_a_19[l - 1].shape[3]
             R = refine_search_regions(nbbs[len(nbbs) - 1], receptive_field_rs[l - 1], feat_width, feat_height)
 
 
-            C_A = common_appearance(feat_a, feat_b, R[0], R[1])
-            C_B = common_appearance(feat_b, feat_a, R[1], R[0])
+            C_A = common_appearance(feat_a_19[l - 1], feat_b_19[l - 1], R[0], R[1])
+            C_B = common_appearance(feat_b_19[l - 1], feat_a_19[l - 1], R[1], R[0])
     
+    print("Printing all nbbs") 
     plt.figure(1)
-    plot_neurons(nbbs[0], 0, img_a)
+    for curr_nbb in nbbs: 
+        plot_neurons(curr_nbb, 0, img_a)
+        
     plt.figure(2)
-    plot_neurons(nbbs[0], 1, img_b)
+    for curr_nbb in nbbs:
+        plot_neurons(curr_nbb, 1, img_b)
 
     plt.show()
 
