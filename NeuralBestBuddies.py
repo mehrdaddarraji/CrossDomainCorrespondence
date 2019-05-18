@@ -10,6 +10,8 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 from matplotlib import pyplot as plt
+import math
+
 
 from torch.autograd import Variable
 # Neuron class, takes in row and col coordinates
@@ -364,8 +366,9 @@ def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
     print("img_a size: ", img_a.size)
     print("img a t-size: ", tf.shape(img_a_tens))
     model = models.resnet18(pretrained=True).eval()
+    # print(model)
     # bb = list(model.layer1.children())[1] used to index into the right block of the layer, then add a .relu to get the relu
-    layer_list = [list(model.layer1.children())[1].relu, list(model.layer2.children())[1].relu, list(model.layer3.children())[1].relu, list(model.layer4.children())[1].relu]
+    layer_list = [model.relu, list(model.layer1.children())[1].relu, list(model.layer2.children())[1].relu, list(model.layer3.children())[1].relu, list(model.layer4.children())[1].relu]
     pyramid_layers = []
     def extract_feature(module, input, output):
         pyramid_layers.append(output)
@@ -430,56 +433,56 @@ def main():
     img_a_tens = img_preprocess_VGG(img_a)
     img_b_tens = img_preprocess_VGG(img_b)
 
-    feat_a_19, feat_b_19 = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
+    # feat_a_19, feat_b_19 = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
 
     # print("vgg 19 types:", type(feat_a_19))
 
-    # img_a_tens = image_preprocess_resnet(img_a)
-    # img_b_tens = image_preprocess_resnet(img_b)
-    # feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
+    img_a_tens = image_preprocess_resnet(img_a)
+    img_b_tens = image_preprocess_resnet(img_b)
+    feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
     # print(feat_a_18[0] )
     # img_a_tens = image_preprocess_alexnet(img_a)
     # img_b_tens = image_preprocess_alexnet(img_b)
     # feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
     
-    receptive_field_rs = [4, 4, 6, 6]
-    neigh_sizes = [3, 3, 5, 5, 5]
-    C_A = feat_a_19[2]
-    C_B = feat_b_19[2]
+    # receptive_field_rs = [4, 4, 6, 6]
+    # neigh_sizes = [3, 3, 5, 5, 5]
+    # C_A = feat_a_19[2]
+    # C_B = feat_b_19[2]
     
-    top_left_p = Neuron(0, 0)
-    bottom_right_p = Neuron(C_A.shape[2], C_A.shape[2])
+    # top_left_p = Neuron(0, 0)
+    # bottom_right_p = Neuron(C_A.shape[2], C_A.shape[2])
     
-    top_left_q = Neuron(0, 0)
-    bottom_right_q = Neuron(C_B.shape[2], C_B.shape[2])
+    # top_left_q = Neuron(0, 0)
+    # bottom_right_q = Neuron(C_B.shape[2], C_B.shape[2])
     
-    R = [(top_left_p, bottom_right_p), (top_left_p, top_left_q)]
-    nbbs = None
+    # R = [(top_left_p, bottom_right_p), (top_left_p, top_left_q)]
+    # nbbs = None
    
-    for l in range (2, 0, -1):
+    # for l in range (2, 0, -1):
         
-        print ("------ Layer ", l + 1, " ------")
+    #     print ("------ Layer ", l + 1, " ------")
 
-        feat_a = feat_a_19[l]
-        feat_b = feat_b_19[l]
+    #     feat_a = feat_a_19[l]
+    #     feat_b = feat_b_19[l]
 
-        nbbs = NBB(C_A, C_B, R, neigh_sizes[l])
-        print(nbbs)
+    #     nbbs = NBB(C_A, C_B, R, neigh_sizes[l])
+    #     print(nbbs)
 
-        if l > 1:
+    #     if l > 1:
 
-            feat_width = feat_a.shape[2]
-            feat_height = feat_b.shape[3]
-            R = refine_search_regions(nbbs, receptive_field_r[l], feat_width, feat_height)
+    #         feat_width = feat_a.shape[2]
+    #         feat_height = feat_b.shape[3]
+    #         R = refine_search_regions(nbbs, receptive_field_r[l], feat_width, feat_height)
 
-            C_A = common_appearance(feat_a, feat_b, R[0], R[1])
-            C_B = common_appearance(feat_b, feat_a, R[1], R[0])
+    #         C_A = common_appearance(feat_a, feat_b, R[0], R[1])
+    #         C_B = common_appearance(feat_b, feat_a, R[1], R[0])
     
-    plt.figure(1)
-    plot_neurons(nbbs, 0, img_a)
-    plt.figure(2)
-    plot_neurons(nbbs, 1, img_b)
-    plt.show()
+    # plt.figure(1)
+    # plot_neurons(nbbs, 0, img_a)
+    # plt.figure(2)
+    # plot_neurons(nbbs, 1, img_b)
+    # plt.show()
 
 if __name__ == "__main__":
     main()
