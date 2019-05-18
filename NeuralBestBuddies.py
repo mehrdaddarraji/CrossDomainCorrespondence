@@ -8,10 +8,11 @@ import torchvision.transforms as transforms
 import torchvision.transforms.functional as F
 import tensorflow as tf
 import numpy as np
+import math
 from PIL import Image
 from matplotlib import pyplot as plt
-
 from torch.autograd import Variable
+
 # Neuron class, takes in row and col coordinates
 class Neuron:
     def __init__(self, row, col):
@@ -440,8 +441,8 @@ def main():
     
     receptive_field_rs = [4, 4, 6, 6]
     neigh_sizes = [3, 3, 5, 5, 5]
-    C_A = feat_a_19[2]
-    C_B = feat_b_19[2]
+    C_A = feat_a_19[4]
+    C_B = feat_b_19[4]
     
     top_left_p = Neuron(0, 0)
     bottom_right_p = Neuron(C_A.shape[2], C_A.shape[2])
@@ -449,10 +450,10 @@ def main():
     top_left_q = Neuron(0, 0)
     bottom_right_q = Neuron(C_B.shape[2], C_B.shape[2])
     
-    R = [(top_left_p, bottom_right_p), (top_left_p, top_left_q)]
+    R = [(top_left_p, bottom_right_p), (top_left_q, bottom_right_q)]
     nbbs = None
    
-    for l in range (2, 0, -1):
+    for l in range (4, 0, -1):
         
         print ("------ Layer ", l + 1, " ------")
 
