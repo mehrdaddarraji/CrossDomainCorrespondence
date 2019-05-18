@@ -11,7 +11,6 @@ import numpy as np
 import math
 from PIL import Image
 from matplotlib import pyplot as plt
-from torch.autograd import Variable
 
 # Neuron class, takes in row and col coordinates
 class Neuron:
@@ -55,10 +54,10 @@ def NBB(C_A, C_B, R, neighbor_size):
     # check the activations and find the most meaningful buddies
     # must return in format p[], q[]
 
-    feat_a_norm = normalize_feature_map(feat_a)
-    feat_b_norm = normalize_feature_map(feat_b)
+    C_A_norm = normalize_feature_map(C_A)
+    C_B_norm = normalize_feature_map(C_B)
 
-    return meaningful_NBBs(feat_a_norm, feat_b_norm, candidates, .05)
+    return meaningful_NBBs(C_A_norm, C_B_norm, candidates, .05)
 
 def normalize_feature_map(feat_map):
     """
