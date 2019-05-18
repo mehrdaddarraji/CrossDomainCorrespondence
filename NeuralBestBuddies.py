@@ -40,7 +40,7 @@ def L2_norm(A_tensor):
 def NBB(C_A, C_B, R, neighbor_size):
     
     P_region = R[0]
-    R_region = R[1]
+    Q_region = R[1]
 
     # iterate through the p's in common_p_q to find its neighbors in Q, (p, q)
     # pass in list of neurons [p1, p2, q1, q2]
@@ -201,7 +201,7 @@ def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
                 nearest_buddies.append(p_cross_corrs.argmax())
                 
     return nearest_buddies
-    
+
 # P and Q should be feature maps for a given layer
 # returns the common appearance C(P, Q)
 def common_appearance(P, Q, region_p_list, region_q_list):
@@ -442,10 +442,10 @@ def main():
     # img_b_tens = image_preprocess_alexnet(img_b)
     # feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
     
-    receptive_field_rs = [6, 6, 4, 4]
+    receptive_field_rs = [4, 4, 6, 6]
     neigh_sizes = [3, 3, 5, 5, 5]
-    C_A = feat_a_19[0]
-    C_B = feat_b_19[0]
+    C_A = feat_a_19[2]
+    C_B = feat_b_19[2]
     
     top_left_p = Neuron(0, 0)
     bottom_right_p = Neuron(C_A.shape[2], C_A.shape[2])
@@ -456,9 +456,9 @@ def main():
     R = [(top_left_p, bottom_right_p), (top_left_p, top_left_q)]
     nbbs = None
    
-    for l in range (1, 5):
+    for l in range (2, 0, -1):
         
-        print ("------ Layer ", 6 - l, " ------")
+        print ("------ Layer ", l + 1, " ------")
 
         feat_a = feat_a_19[l]
         feat_b = feat_b_19[l]
