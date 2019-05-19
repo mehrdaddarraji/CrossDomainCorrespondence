@@ -34,6 +34,7 @@ def L2_norm(A_tensor):
     A_sqrt = np.power(pow_sum, 0.5)
     return torch.from_numpy(A / A_sqrt)
 
+
 # input, feature tensors of the new regions from P and Q
 # returns 2 lists of touples, one for P and one for Q
 # each touple is a neuron p, with is corresponding NN q
@@ -48,11 +49,24 @@ def NBB(C_A, C_B, R, neighbor_size):
     # p1 - bottom left, p2 bottom right, same for q
     #     print("P_nearest")
     print("Nearest neighbor start")
-    qs_for_ps = nearest_neighbor(C_A, C_B, P_region, neighbor_size)
+    
+    qs_for_ps = nearest_neighbor(C_A, C_B, P_region, Q_region)
+    print(qs_for_ps)
+    # qs_for_ps = nearest_neighbor(C_A, C_B, P_region, neighbor_size)
+    
+    
     print("Nearest neighbor midpoint")
+    
+    
+    
+    
+    
     # iterate through the q's in common_q_p to find its neighbors in P, (q, p)
      #     print("Q_nearest")
-    ps_for_qs = nearest_neighbor(C_B, C_A, Q_region, neighbor_size)
+        
+    ps_for_qs = nearest_neighbor(C_B, C_A, Q_region, P_region)
+    print(ps_for_qs)
+    #ps_for_qs = nearest_neighbor(C_B, C_A, Q_region, neighbor_size)
     print("Nearest neighbor end")
     # returns in (p, q) format
     # get the candidates that are nearest neighbors to each other
@@ -165,6 +179,88 @@ def get_candidates(P_nearest, Q_nearest):
 
     return candidates
 
+def _get_neighborhood(P, i, j, neigh_rad):
+    # 2
+    P = P.permute(1, 2, 0)
+    P_padded = torch.zeros((P.size()[0] + 2 * neigh_rad, P.size()[1] + 2 * neigh_rad, P.size()[2]))
+    P_padded[neigh_rad: -neigh_rad, neigh_rad: -neigh_rad] = P
+    return P_padded[i: i + 2 * neigh_rad + 1, j: j + 2 * neigh_rad + 1].permute(2, 0, 1)
+
+def _NBB(Ps, Qs, neigh_rad, gamma=0.05):
+    """
+    args:
+        P: 4D tensor of features in NCHW format
+        Q: 4D tensor of features in NCHW format
+        neigh_rad: int representing amount of surrounding neighbors to include in cross correlation.
+                   so neigh_rad of 1 takes cross correlation of 3x3 patches of neurons
+        gamma: (optional) activation threshold
+    output:
+        NBB pairs
+    """
+
+    height = Ps.size()[2]
+    width = Ps.size()[3]
+    n_channels = Ps.size()[1]
+
+    best_buddies = []
+
+    for P, Q in zip(Ps, Qs):
+        #2
+        P_L2 = P.clone().permute(1,2,0).norm(2, 2)
+        Q_L2 = Q.clone().permute(1,2,0).norm(2, 2)
+
+        P_over_L2 = P.div(P_L2)
+        Q_over_L2 = Q.div(Q_L2)
+
+        P_nearest = []
+        Q_nearest = []
+        for i in range(0, height):
+            for j in range(0, width):
+                p_neigh = _get_neighborhood(P_over_L2, i, j, neigh_rad)
+                # 1
+                conv = torch.nn.Conv2d(n_channels, 1, neigh_rad * 2 + 1, padding=neigh_rad)
+                conv.train(False)
+                conv.weight.data.copy_(p_neigh.unsqueeze(0))
+                p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().view(-1)
+                # 4
+                P_nearest.append(p_cross_corrs.argmax())
+
+                q_neigh = _get_neighborhood(Q_over_L2, i, j, neigh_rad)
+                conv = torch.nn.Conv2d(n_channels, 1, neigh_rad * 2 + 1, padding=neigh_rad)
+                conv.train(False)
+                conv.weight.data.copy_(q_neigh.unsqueeze(0))
+                q_cross_corrs = conv(P_over_L2.unsqueeze(0)).squeeze().view(-1)
+                Q_nearest.append(q_cross_corrs.argmax())
+
+        # 5
+        P_L2_min = P_L2.min()
+        P_L2_max = P_L2.max()
+        P_normalized = (P_L2.view(-1) - P_L2_min) / (P_L2_max - P_L2_min)
+
+        Q_L2_min = Q_L2.min()
+        Q_L2_max = Q_L2.max()
+        Q_normalized = (Q_L2.view(-1) - Q_L2_min) / (Q_L2_max - Q_L2_min)
+        
+        pq_size = int(math.sqrt(len(P_nearest)))
+        
+        for i in range(len(P_nearest)):
+            if(i == Q_nearest[P_nearest[i]] and P_normalized[i] > gamma and Q_normalized[P_nearest[i]] > gamma):
+                
+                
+                p_c = math.floor(1.0 * i / pq_size)
+                p_r = i - (p_c * pq_size)
+                p = Neuron(p_r, p_c)
+
+                j = P_nearest[i]
+                q_c = math.floor(1.0 * j / pq_size)
+                q_r = j - (q_c * pq_size)
+                q = Neuron(int(q_r), q_c)
+#                 best_buddies.append((i, int(P_nearest[i])))
+
+                best_buddies.append([p, q])
+        
+    return best_buddies
+
 # neighborhood function for P
 def neighborhood(P_over_L2, p_i, p_j, neigh_size):
 
@@ -177,6 +273,7 @@ def neighborhood(P_over_L2, p_i, p_j, neigh_size):
     P_padded = P_padded[p_i: p_i + 2 * neigh_rad + 1, p_j: p_j + 2 * neigh_rad + 1].permute(2, 0, 1)
 
     return P_padded
+
 
 # takes in P and Q tensors, and the neighborhood size(5 or 3)
 # returns list of nearest neighbors of P
@@ -231,6 +328,7 @@ def nearest_neighbor(P_tensor, Q_tensor, P_region, neigh_size):
                 nearest_buddies.append(p_cross_corrs.argmax())
                 
     return nearest_buddies
+
 
 # P and Q should be feature maps for a given layer
 # returns the common appearance C(P, Q)
@@ -398,7 +496,6 @@ def vgg19_model(img_a, img_b, img_a_tens, img_b_tens):
     for layer in pyramid_layers:
         print("ith layer @ relu: ", layer.size())
         
-    pyramid_layers.reverse()
     return pyramid_layers[:5], pyramid_layers[5:]
 
 def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
@@ -468,11 +565,11 @@ def plot_neurons(n_list, i, img):
 
 def scale_nbbs(nbbs, layer):
     
-    scale_factor = int(math.pow(2, 4 - layer))
+    scale_factor = int(math.pow(2, layer))
     scaled_nbbs = []
      
     for p, q in nbbs:
-
+        
         p.r = p.r * scale_factor;
         p.c = p.c * scale_factor;
 
@@ -502,10 +599,11 @@ def main():
     # img_b_tens = image_preprocess_alexnet(img_b)
     # feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
     
-    layer = 1
+    layer = 4
     
     receptive_field_rs = [4, 4, 6, 6]
-    neigh_sizes = [5, 5, 5, 3, 3]
+    # neigh_sizes = [5, 5, 5, 3, 3]
+    neigh_sizes = [2, 2, 2, 1, 1]
 
     C_A = feat_a_19[layer]
     C_B = feat_b_19[layer]
@@ -530,7 +628,9 @@ def main():
         print(feat_a.size())
         print(feat_b.size())
         
-        layer_nbbs = NBB(C_A, C_B, R, neigh_sizes[l])
+#         layer_nbbs = _NBB(C_A, C_B, R, neigh_sizes[l])
+        layer_nbbs = _NBB(C_A, C_B, neigh_sizes[l])
+        print(layer_nbbs)
         scaled_nbbs = scale_nbbs(layer_nbbs, l)
 #         scaled_nbbs = layer_nbbs
         nbbs.append(scaled_nbbs)
