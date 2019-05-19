@@ -86,6 +86,7 @@ if __name__ == '__main__':
     # Create an array of points.
     points = [];
     line_mapping = dict()
+    print("Fetching wapcs")
     # Read in the points from a text file
     with open("triangulation.txt") as file :
         l = 0
@@ -94,7 +95,8 @@ if __name__ == '__main__':
             points.append((int(x), int(y)))
             line_mapping[(int(x), int(y))] = l 
             l += 1
-
+    print("Triangulating.....")
+    print("HINT: Press 0 to skip animation.")
     # Insert points into subdiv
     for p in points :
         subdiv.insert(p)
@@ -120,15 +122,15 @@ if __name__ == '__main__':
     draw_voronoi(img_voronoi,subdiv)
 
     # print("voronoi list:", )
-
-    with open("triangulated.txt", "w") as file:
+    fileName = "triangulated.txt"
+    with open(fileName, "w") as file:
         for triangle in subdiv.getTriangleList():
             c1 = line_mapping[triangle[0], triangle[1]]
             c2 = line_mapping[triangle[2], triangle[3]]
             c3 = line_mapping[triangle[4], triangle[5]]
             s = str(c1) + " " + str(c2) + " " + str(c3) + "\n"
             file.write(s)
-            
+    print("Triangulation finished successfully and stored at " + fileName)
     # Show results
     cv2.imshow(win_delaunay,img)
     cv2.imshow(win_voronoi,img_voronoi)
