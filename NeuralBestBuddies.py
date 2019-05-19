@@ -496,7 +496,7 @@ def high_ranked_buddies(nbbs, k):
     p_coords = []
     q_coords = []
     for p, q in nbbs:
-        act = p.acc_summ + q.acc_sum
+        act = p.activation + q.activation
         act_list.append(act)
         p_coords.append((p.r, p.c))
         q_coords.append((q.r, q.c))
@@ -524,7 +524,12 @@ def high_ranked_buddies(nbbs, k):
         # find cluster, coords, and activation that corresponds to i
         cluster_p = cluster_listp[i]
         coords_p = p_coords[i]
-        act_p = act_list[i]
+        ind_of_acts = np.where(p_coords == coords_p)[0]
+        act_p = 0
+        for ind in ind_of_acts:
+            neuron = p_coords[ind]
+            act_p += neuron.activation
+
         # append to lists created, so each coordinates & activations are organized by cluster
         coords_per_clusterp[cluster_p].append(coords_p)
         ac_per_coordsp[cluster_p].append(act_p)
@@ -532,7 +537,12 @@ def high_ranked_buddies(nbbs, k):
         # do the same for q
         cluster_q = cluster_listq[i]
         coords_q = q_coords[i]
-        act_q = act_list[i]
+        ind_of_acts = np.where(q_coords == coords_q)[0]
+        act_q = 0
+        for ind in ind_of_acts:
+            neuron = q_coords[ind]
+            act_q += neuron.activation
+
         coords_per_clusterq[cluster_q].append(coords_q)
         ac_per_coordsq[cluster_q].append(act_q)
 
@@ -556,6 +566,7 @@ def high_ranked_buddies(nbbs, k):
         true_buddies.append((neuronp, neuronq))
 
     return true_buddies
+
 
 
 def main():
