@@ -486,6 +486,7 @@ def scale_nbbs(nbbs, layer):
 
 # given a list of meaningful BBs, we return a new list of NBB that contain the highest rank in their respective clusterss
 def high_ranked_buddies(nbbs, k):
+
     if k > len(nbbs):
         return nbbs
     # have buddies with act_sum
@@ -494,12 +495,16 @@ def high_ranked_buddies(nbbs, k):
     # [act = p.act_sum + q.act_sum, act = p2.act_sum + q2.act_sum]
     act_list = []
     p_coords = []
+    p_neurons = []
     q_coords = []
+    q_neurons = []
     for p, q in nbbs:
         act = p.activation + q.activation
         act_list.append(act)
         p_coords.append((p.r, p.c))
+        p_neurons.append(p)
         q_coords.append((q.r, q.c))
+        q_neurons.append(q)
 
     # creates k clusters for p coordinates
     kmeansp = KMeans(n_clusters=k)
@@ -513,26 +518,37 @@ def high_ranked_buddies(nbbs, k):
     cluster_listq = kmeansq.labels_
 
     # list of lists, where each inner list is a list that corresponds to a cluster
-    coords_per_clusterp = [[]] * k
-    act_per_coordsp = [[]] * k
-
-    coords_per_clusterq = [[]] * k
-    act_per_coordsq = [[]] * k
+    coords_per_clusterp = []
+    act_per_coordsp = []
+    coords_per_clusterq = []
+    act_per_coordsq = []
+    for i in range(k):
+        coords_per_clusterp.append([])
+        act_per_coordsp.append([])
+        coords_per_clusterq.append([])
+        act_per_coordsq.append([])
 
     # iterate through cluster_listq (should be same size as cluster_listq)
-    for i in range(len(cluster_listp)):
+    for i, val in enumerate(cluster_listp):
         # find cluster, coords, and activation that corresponds to i
-        cluster_p = cluster_listp[i]
+        #cluster_p = cluster_listp[i]
+        cluster_p = val
         coords_p = p_coords[i]
-        ind_of_acts = np.where(p_coords == coords_p)[0]
+        ind_of_acts = []
+        # ind_of_acts = [np.where(p_coords == coords_p)[0]]
+        for ind, p in enumerate(p_coords):
+            #print(p)
+            if p[0] == coords_p[0] and p[1] == coords_p[1]:
+                ind_of_acts.append(ind)
+
         act_p = 0
-        for ind in ind_of_acts:
-            neuron = p_coords[ind]
-            act_p += neuron.activation
+        for act in ind_of_acts:
+            neuron = p_neurons[act]
+            act_p += neuron.activation.item()
 
         # append to lists created, so each coordinates & activations are organized by cluster
         coords_per_clusterp[cluster_p].append(coords_p)
-        ac_per_coordsp[cluster_p].append(act_p)
+        act_per_coordsp[cluster_p].append(act_p)
 
         # do the same for q
         cluster_q = cluster_listq[i]
@@ -540,27 +556,29 @@ def high_ranked_buddies(nbbs, k):
         ind_of_acts = np.where(q_coords == coords_q)[0]
         act_q = 0
         for ind in ind_of_acts:
-            neuron = q_coords[ind]
+            neuron = q_neurons[ind]
             act_q += neuron.activation
 
         coords_per_clusterq[cluster_q].append(coords_q)
-        ac_per_coordsq[cluster_q].append(act_q)
+        act_per_coordsq[cluster_q].append(act_q)
 
     true_buddies = []
     # find the final true buddies list
     # iterate through the list of activations of p and q
-    for i in range(len(ac_per_coordsp)):
+    for i in range(len(act_per_coordsp)):
         # find the argmax of the activation of the ith cluster and get the coordinates that correspond
-        act_listp = ac_per_coordsp[i]
-        max_act_indp = act_listp.argmax()
+        act_listp = act_per_coordsp[i]
+        max_act_indp = np.argmax(act_listp)
+        activp = act_listp[max_act_indp]
         buddy_coords_p = coords_per_clusterp[i][max_act_indp]
         # transform back to neuron
-        neuronp = Neuron(buddy_coords_p[0],buddy_coords_p[1])
+        neuronp = Neuron(buddy_coords_p[0],buddy_coords_p[1], activp)
 
-        act_listq = ac_per_coordsq[i]
-        max_act_indq = act_listq.argmax()
+        act_listq = act_per_coordsq[i]
+        max_act_indq = np.argmax(act_listq)
+        activq = act_listp[max_act_indp]
         buddy_coords_q = coords_per_clusterq[i][max_act_indq]
-        neuronq = Neuron(buddy_coords_q[0],buddy_coords_q[1])
+        neuronq = Neuron(buddy_coords_q[0],buddy_coords_q[1], activq)
 
         # append both neurons to final list
         true_buddies.append((neuronp, neuronq))
