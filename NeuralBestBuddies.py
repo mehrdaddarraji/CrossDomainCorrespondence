@@ -179,7 +179,7 @@ def L2_norm(A_tensor):
     return torch.from_numpy(A / A_sqrt)
 
 
-def _NBB(Ps, Qs, neigh_rad, gamma=0.05):
+def NBB(Ps, Qs, neigh_rad, gamma=0.05):
     """
     input, feature tensors of the new regions from P and Q
     returns 2 lists of touples, one for P and one for Q
@@ -206,14 +206,14 @@ def _NBB(Ps, Qs, neigh_rad, gamma=0.05):
         
         for i in range(0, height):
             for j in range(0, width):
-                p_neigh = _get_neighborhood(P_over_L2, i, j, neigh_rad)
+                p_neigh = get_neighborhood(P_over_L2, i, j, neigh_rad)
                 conv = torch.nn.Conv2d(n_channels, 1, neigh_rad * 2 + 1, padding=neigh_rad)
                 conv.train(False)
                 conv.weight.data.copy_(p_neigh.unsqueeze(0))
                 p_cross_corrs = conv(Q_over_L2.unsqueeze(0)).squeeze().view(-1)
                 P_nearest.append(p_cross_corrs.argmax())
 
-                q_neigh = _get_neighborhood(Q_over_L2, i, j, neigh_rad)
+                q_neigh = get_neighborhood(Q_over_L2, i, j, neigh_rad)
                 conv = torch.nn.Conv2d(n_channels, 1, neigh_rad * 2 + 1, padding=neigh_rad)
                 conv.train(False)
                 conv.weight.data.copy_(q_neigh.unsqueeze(0))
@@ -243,7 +243,7 @@ def _NBB(Ps, Qs, neigh_rad, gamma=0.05):
 
     return meaningful_NBBs(feat_a_norm, feat_b_norm, best_buddies, .05)
 
-def _get_neighborhood(P, i, j, neigh_rad):
+def get_neighborhood(P, i, j, neigh_rad):
     P = P.permute(1, 2, 0)
     P_padded = torch.zeros((P.size()[0] + 2 * neigh_rad, P.size()[1] + 2 * neigh_rad, P.size()[2]))
     P_padded[neigh_rad: -neigh_rad, neigh_rad: -neigh_rad] = P
@@ -314,9 +314,9 @@ def meaningful_NBBs(C_A, C_B, candidates, act_threshold):
 
     return meaningful_buddies
 
-def scale_nbbs(nbbs, width):
-    
-    scale_factor = int(224 / width)
+def scale_nbbs(nbbs, layer):
+        
+    scale_factor = int(math.pow(2, 4 - layer))
     scaled_nbbs = []
      
     for p, q in nbbs:
@@ -374,17 +374,17 @@ def high_ranked_buddies(nbbs, k):
     cluster_listp = kmeansp.labels_
 
     # creates k clusters for q coordinates
-    kmeansq= KMeans(n_clusters=k)
-    kmeansq.fit(q_coords)
-    cluster_listq = kmeansq.labels_
+    # kmeansq= KMeans(n_clusters=k)
+    # kmeansq.fit(q_coords)
+    # cluster_listq = kmeansq.labels_
 
     # list of lists, where each inner list is a list that corresponds to a cluster
-    coords_per_clusterp = []
+    neuron_per_clusterp = []
     act_per_coordsp = []
     coords_per_clusterq = []
     act_per_coordsq = []
     for i in range(k):
-        coords_per_clusterp.append([])
+        neuron_per_clusterp.append([])
         act_per_coordsp.append([])
         coords_per_clusterq.append([])
         act_per_coordsq.append([])
@@ -408,20 +408,20 @@ def high_ranked_buddies(nbbs, k):
             act_p += neuron.activation.item()
 
         # append to lists created, so each coordinates & activations are organized by cluster
-        coords_per_clusterp[cluster_p].append(coords_p)
+        neuron_per_clusterp[cluster_p].append(nbbs[i])
         act_per_coordsp[cluster_p].append(act_p)
 
         # do the same for q
-        cluster_q = cluster_listq[i]
-        coords_q = q_coords[i]
-        ind_of_acts = np.where(q_coords == coords_q)[0]
-        act_q = 0
-        for ind in ind_of_acts:
-            neuron = q_neurons[ind]
-            act_q += neuron.activation
+        # cluster_q = cluster_listq[i]
+        # coords_q = q_coords[i]
+        # ind_of_acts = np.where(q_coords == coords_q)[0]
+        # act_q = 0
+        # for ind in ind_of_acts:
+        #     neuron = q_neurons[ind]
+        #     act_q += neuron.activation
 
-        coords_per_clusterq[cluster_q].append(coords_q)
-        act_per_coordsq[cluster_q].append(act_q)
+        # coords_per_clusterq[cluster_q].append(coords_q)
+        # act_per_coordsq[cluster_q].append(act_q)
 
     true_buddies = []
     # find the final true buddies list
@@ -429,20 +429,22 @@ def high_ranked_buddies(nbbs, k):
     for i in range(len(act_per_coordsp)):
         # find the argmax of the activation of the ith cluster and get the coordinates that correspond
         act_listp = act_per_coordsp[i]
-        max_act_indp = np.argmax(act_listp)
-        activp = act_listp[max_act_indp]
-        buddy_coords_p = coords_per_clusterp[i][max_act_indp]
-        # transform back to neuron
-        neuronp = Neuron(buddy_coords_p[0],buddy_coords_p[1], activp)
 
-        act_listq = act_per_coordsq[i]
-        max_act_indq = np.argmax(act_listq)
-        activq = act_listp[max_act_indp]
-        buddy_coords_q = coords_per_clusterq[i][max_act_indq]
-        neuronq = Neuron(buddy_coords_q[0],buddy_coords_q[1], activq)
+        max_act_indp = np.argmax(act_listp)
+
+        activp = act_listp[max_act_indp]
+        buddy = neuron_per_clusterp[i][max_act_indp]
+        # transform back to neuron
+        # neuronp = Neuron(buddy_coords_p[0],buddy_coords_p[1], activp)
+
+        # act_listq = act_per_coordsq[i]
+        # max_act_indq = np.argmax(act_listq)
+        # activq = act_listp[max_act_indp]
+        # buddy_coords_q = coords_per_clusterq[i][max_act_indq]
+        # neuronq = Neuron(buddy_coords_q[0],buddy_coords_q[1], activq)
 
         # append both neurons to final list
-        true_buddies.append((neuronp, neuronq))
+        true_buddies.append(buddy)
 
     return true_buddies
 
@@ -539,9 +541,29 @@ def common_appearance(P, Q, region_p_list, region_q_list):
         
     return p_to_q
 
+def plot_neurons(n_list, i, img):
+    # Mock data
+    # n1 = Neuron(1, 2)
+    # n2 = Neuron(150, 150)
+    # n3 = Neuron(10, -2)
+    # n4 = Neuron(-1, -3)
+    # n_list = [[n1, n2], [n3, n4]]
+    
+    plt.axis("off")
+    img_plot = plt.imshow(img)
+
+    for pair in n_list:
+        neuron = pair[i]
+#         print("plotting", neuron.r, neuron.c)
+        # figure(1)
+        # plt.scatter(neuron.r, neuron.c)
+        # figure(2)
+        plt.scatter(neuron.r, neuron.c)
+
+
 def main():
-    img_a = Image.open("../input/cat.jpg")
-    img_b = Image.open("../input/dog.jpg")
+    img_a = Image.open("../input/dog.jpg")
+    img_b = Image.open("../input/cat.jpg")
     img_a_tens = img_preprocess_VGG(img_a)
     img_b_tens = img_preprocess_VGG(img_b)
 
@@ -589,20 +611,25 @@ def main():
         print(feat_a.size())
         print(feat_b.size())
         
-        layer_nbbs = _NBB(C_A, C_B, neigh_sizes[l])
+        layer_nbbs = NBB(C_A, C_B, neigh_sizes[l])
         nbbs.append(layer_nbbs)
-        scaled_nbbs.append(scale_nbbs(layer_nbbs, feat_a.shape[2]))
-        
+        scaled_nbbs.append(scale_nbbs(layer_nbbs, l))
 
         nbbs_high = high_ranked_buddies(layer_nbbs, 30)
-        scaled_nbbs_high.append(scale_nbbs(nbbs_high, feat_a.shape[2]))
+        scaled_nbbs_high.append(scale_nbbs(nbbs_high, l))
         
-        print("nbbs: ", scaled_nbbs_high[layer - 1])
-        
+        print("nbbs: ", scaled_nbbs_high[layer - l])
+                
         plot_with_grid((1,2,1), img_a, feat_a.size()[2], scaled_nbbs_high[layer - l], 'a', colors)
         plot_with_grid((1,2,2), img_b, feat_a.size()[2], scaled_nbbs_high[layer - l], 'b', colors)
         plt.show()
-
+        
+#         plt.figure(1)
+#         plot_neurons(scaled_nbbs[layer - l], 0, img_a)
+#         plt.figure(2)
+#         plot_neurons(scaled_nbbs[layer - l], 1, img_b)
+#         plt.show()
+        
         if l > 0:
                  
             feat_width = feat_a_19[l - 1].shape[2]
@@ -612,7 +639,7 @@ def main():
             r = [[Neuron(0, 0), Neuron(feat_width, feat_height)]]
             
             C_A = common_appearance(feat_a_19[l - 1], feat_b_19[l - 1], r, r)# R[0], R[1])
-            C_B = common_appearance(feat_b_19[l - 1], feat_a_19[l - 1], r, r)#R[1], R[0]), 
+            C_B = common_appearance(feat_b_19[l - 1], feat_a_19[l - 1], r, r)# R[1], R[0]), 
             
 
     print("Printing all nbbs") 
