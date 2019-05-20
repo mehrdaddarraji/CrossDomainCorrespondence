@@ -344,14 +344,6 @@ def plot_with_grid(subplt, img, n_cells, nbbs, a_or_b, colors, my_dpi=60):
         i = coords[nbb_index].r
         ax.add_artist(plt.Circle((i, j), 3, color=colors[index], alpha=0.9))
 
-def plot_neurons(n_list, i, img):
-    
-    plt.axis('off')
-    img_plot = plt.imshow(img)
-    
-    for pair in n_list:
-        neuron = pair[i]
-        plt.scatter(neuron.r, neuron.c)
 
 # given a list of meaningful BBs, we return a new list of NBB that contain the highest rank in their respective clusterss
 def high_ranked_buddies(nbbs, k):
@@ -557,7 +549,7 @@ def main():
     
     colors = list(dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS).keys())
     shuffle(colors)
-
+    
     # img_a_tens = image_preprocess_resnet(img_a)
     # img_b_tens = image_preprocess_resnet(img_b)
     # feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
@@ -566,7 +558,7 @@ def main():
     # img_b_tens = image_preprocess_alexnet(img_b)
     # feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
     
-    layer = 1
+    layer = 4
     
     receptive_field_rs = [4, 4, 6, 6]
     # neigh_sizes = [5, 5, 5, 3, 3]
@@ -602,7 +594,7 @@ def main():
         scaled_nbbs.append(scale_nbbs(layer_nbbs, feat_a.shape[2]))
         
 
-        nbbs_high = high_ranked_buddies(layer_nbbs, 80)
+        nbbs_high = high_ranked_buddies(layer_nbbs, 30)
         scaled_nbbs_high.append(scale_nbbs(nbbs_high, feat_a.shape[2]))
         
         print("nbbs: ", scaled_nbbs_high[layer - 1])
