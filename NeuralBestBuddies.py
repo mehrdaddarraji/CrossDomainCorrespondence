@@ -12,6 +12,7 @@ import math
 from PIL import Image
 from matplotlib import pyplot as plt
 import math
+from sklearn.cluster import KMeans
 
 class Neuron:
     """
