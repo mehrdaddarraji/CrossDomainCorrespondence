@@ -64,8 +64,8 @@ def morphTriangle(img1, img2, img, t1, t2, t, alpha) :
 
 
 def main():
-    img_a = cv2.imread("../input/dog1.jpg");
-    img_b = cv2.imread("../input/dog2.jpg");
+    img_a = cv2.imread("../input/dog2.jpg");
+    img_b = cv2.imread("scaled_person.jpg");
     img_a_f = np.float32(img_a)
     img_b_f = np.float32(img_b)
     n_list_1 = readPoints("img_a_nbbs.txt")

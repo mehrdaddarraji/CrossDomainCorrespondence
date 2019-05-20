@@ -64,14 +64,14 @@ if __name__ == '__main__':
     win_voronoi = "Voronoi Diagram"
 
     # Turn on animation while drawing triangles
-    animate = True
+    animate = False
     
     # Define colors for drawing.
     delaunay_color = (255,255,255)
     points_color = (0, 0, 255)
 
     # Read in the image.
-    img = cv2.imread("../input/dog1.jpg");
+    img = cv2.imread("../input/dog2.jpg");
     
     # Keep a copy around
     img_orig = img.copy();

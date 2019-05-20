@@ -435,18 +435,18 @@ def main():
     img_b = Image.open("../input/dog2.jpg")
     img_a_tens = img_preprocess_VGG(img_a)
     img_b_tens = img_preprocess_VGG(img_b)
+    
+    feat_a_19, feat_b_19 = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
 
-    # feat_a_19, feat_b_19 = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
+    print("vgg 19 types:", type(feat_a_19))
 
-    # print("vgg 19 types:", type(feat_a_19))
-
-    img_a_tens = image_preprocess_resnet(img_a)
-    img_b_tens = image_preprocess_resnet(img_b)
-    feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
+    # img_a_tens = image_preprocess_resnet(img_a)
+    # img_b_tens = image_preprocess_resnet(img_b)
+    # feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
     # print(feat_a_18[0] )
-    # img_a_tens = image_preprocess_alexnet(img_a)
-    # img_b_tens = image_preprocess_alexnet(img_b)
-    # feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
+    img_a_tens = image_preprocess_alexnet(img_a)
+    img_b_tens = image_preprocess_alexnet(img_b)
+    feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
     
     # receptive_field_rs = [4, 4, 6, 6]
     # neigh_sizes = [3, 3, 5, 5, 5]
