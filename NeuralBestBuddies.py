@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.autograd import Variable
 from torch.autograd import Variable as V
 import torchvision.models as models
 import torchvision.transforms as transforms
@@ -105,12 +106,13 @@ def vgg19_model(img_a, img_b, img_a_tens, img_b_tens):
     return pyramid_layers[:5], pyramid_layers[5:]
 
 def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
-    print("********************************** R E S N E T 18 **********************************")
+    print("**********************************R E S N E T 18**********************************")
     print("img_a size: ", img_a.size)
     print("img a t-size: ", tf.shape(img_a_tens))
     model = models.resnet18(pretrained=True).eval()
+    # print(model)
     # bb = list(model.layer1.children())[1] used to index into the right block of the layer, then add a .relu to get the relu
-    layer_list = [list(model.layer1.children())[1].relu, list(model.layer2.children())[1].relu, list(model.layer3.children())[1].relu, list(model.layer4.children())[1].relu]
+    layer_list = [model.relu, list(model.layer1.children())[1].relu, list(model.layer2.children())[1].relu, list(model.layer3.children())[1].relu, list(model.layer4.children())[1].relu]
     pyramid_layers = []
     def extract_feature(module, input, output):
         pyramid_layers.append(output)
@@ -122,6 +124,9 @@ def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
     # Run the model on our transformed image
     model(img_a_tens)
     model(img_b_tens)
+    pyramid_layers.insert(0, pyramid_layers[0])
+    pyramid_layers.append(pyramid_layers[len(pyramid_layers) - 1 ])
+    # py
     # remove duplicates..... (not sure why we had them in the first place.)
     pyramid_layers = [ pyramid_layers[idx] for idx in range(0, len(pyramid_layers), 2)]
     # Return the feature vector
@@ -129,7 +134,8 @@ def resnet_18(img_a, img_b, img_a_tens, img_b_tens):
         print("ith layer @ relu: ", layer.size())
     # print("first layer:",pyramid_layers[7].size())
     # print("2th layer:",pyramid_layers[4].size())
-    return pyramid_layers[:4], pyramid_layers[4:]
+    pyramid_layers.reverse()
+    return pyramid_layers[:5], pyramid_layers[5:]
 
 def alexnet(img_a, img_b, img_a_tens, img_b_tens):
     print("********************************** A L E X N E T **********************************")
@@ -150,6 +156,7 @@ def alexnet(img_a, img_b, img_a_tens, img_b_tens):
 
     for layer in pyramid_layers: # debug, check layers
         print("ith layer @ relu: ", layer.size())
+    pyramid_layers.reverse()
     return pyramid_layers[:5], pyramid_layers[5:]
 
 def feat_arg_max(feat):
@@ -204,6 +211,7 @@ def NBB(Ps, Qs, neigh_rad, gamma=0.05):
         P_nearest = []
         Q_nearest = []
         
+        # get nearest neighbors
         for i in range(0, height):
             for j in range(0, width):
                 p_neigh = get_neighborhood(P_over_L2, i, j, neigh_rad)
@@ -223,6 +231,7 @@ def NBB(Ps, Qs, neigh_rad, gamma=0.05):
       
         pq_size = int(math.sqrt(len(P_nearest)))
         
+        # get candidates and unflatten buddies
         for i in range(len(P_nearest)):
             if(i == Q_nearest[P_nearest[i]]):
                 
@@ -314,26 +323,34 @@ def meaningful_NBBs(C_A, C_B, candidates, act_threshold):
 
     return meaningful_buddies
 
-def scale_nbbs(nbbs, layer):
+def scale_nbbs(nbbs, layer, offset, is_alex_net):
+    
+    scale_factor = 0
         
-    scale_factor = int(math.pow(2, 4 - layer))
+    if is_alex_net:
+        print("is alexnet")
+        scaling_list = [13.17, 13.17, 13.17, 6.22, 3.02]
+        scale_factor = scaling_list[layer]
+    else:
+        scale_factor = int(math.pow(2, offset + 4 - layer))
+        
     scaled_nbbs = []
      
     for p, q in nbbs:
         
-        scaled_p_r = p.r * scale_factor;
-        scaled_p_c = p.c * scale_factor;
+        scaled_p_r = int(p.r * scale_factor);
+        scaled_p_c = int(p.c * scale_factor);
         scaled_p = Neuron(scaled_p_r, scaled_p_c, p.activation)
 
-        scaled_q_r = q.r * scale_factor;
-        scaled_q_c = q.c * scale_factor;
+        scaled_q_r = int(q.r * scale_factor);
+        scaled_q_c = int(q.c * scale_factor);
         scaled_q = Neuron(scaled_q_r, scaled_q_c, q.activation)
         
         scaled_nbbs.append([scaled_p, scaled_q])
     
     return scaled_nbbs
 
-def plot_with_grid(subplt, img, n_cells, nbbs, a_or_b, colors, my_dpi=60):
+def plot_buddies(subplt, img, n_cells, nbbs, a_or_b, colors, my_dpi=60):
     ax = plt.subplot(*subplt)
     ax.imshow(img)
     plt.axis('off')
@@ -562,25 +579,33 @@ def plot_neurons(n_list, i, img):
 
 
 def main():
-    img_a = Image.open("../input/dog.jpg")
-    img_b = Image.open("../input/cat.jpg")
+    img_a = Image.open("../input/dog1.jpg")
+    img_b = Image.open("../input/dog2.jpg")
+    
     img_a_tens = img_preprocess_VGG(img_a)
     img_b_tens = img_preprocess_VGG(img_b)
-
     feat_a_19, feat_b_19 = vgg19_model(img_a, img_b, img_a_tens, img_b_tens)
+    scale_offset = 0
+    is_alex_net = False
     
+   
+#     img_a_tens = image_preprocess_resnet(img_a)
+#     img_b_tens = image_preprocess_resnet(img_b)
+#     feat_a_19, feat_b_19 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
+#     scale_offset = 1
+#     is_alex_net = False
+    
+#     img_a_tens = image_preprocess_alexnet(img_a)
+#     img_b_tens = image_preprocess_alexnet(img_b)
+#     feat_a_19, feat_b_19 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
+#     scale_offset = 0
+#     is_alex_net = True
+    
+    # colors for nbb plotting
     colors = list(dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS).keys())
     shuffle(colors)
     
-    # img_a_tens = image_preprocess_resnet(img_a)
-    # img_b_tens = image_preprocess_resnet(img_b)
-    # feat_a_18, feat_b_18 = resnet_18(img_a, img_b, img_a_tens, img_b_tens)
-    
-    # img_a_tens = image_preprocess_alexnet(img_a)
-    # img_b_tens = image_preprocess_alexnet(img_b)
-    # feat_a_v3, feat_b_v3 = alexnet(img_a, img_b, img_a_tens, img_b_tens)
-    
-    layer = 4
+    layer = 1
     
     receptive_field_rs = [4, 4, 6, 6]
     # neigh_sizes = [5, 5, 5, 3, 3]
@@ -601,7 +626,7 @@ def main():
     scaled_nbbs = []
     scaled_nbbs_high = []
     
-    for l in range (layer, -1, -1):
+    for l in range (layer, 0, -1):
         
         print ("------ Layer ", l + 1, " ------")
 
@@ -613,15 +638,22 @@ def main():
         
         layer_nbbs = NBB(C_A, C_B, neigh_sizes[l])
         nbbs.append(layer_nbbs)
-        scaled_nbbs.append(scale_nbbs(layer_nbbs, l))
+        scaled_nbbs.append(scale_nbbs(layer_nbbs, l, scale_offset, is_alex_net))
+        
+        print("layer nbbs: ", layer_nbbs)
 
-        nbbs_high = high_ranked_buddies(layer_nbbs, 30)
-        scaled_nbbs_high.append(scale_nbbs(nbbs_high, l))
+        nbbs_high = high_ranked_buddies(layer_nbbs, 100)
+        scaled_nbbs_high.append(scale_nbbs(nbbs_high, l, scale_offset, is_alex_net))
+        
+#         plot_buddies((1,2,1), img_a, feat_a.size()[2], scaled_nbbs[layer - l], 'a', colors)
+#         plot_buddies((1,2,2), img_b, feat_a.size()[2], scaled_nbbs[layer - l], 'b', colors)
+#         plt.show()
+        
         
         print("nbbs: ", scaled_nbbs_high[layer - l])
                 
-        plot_with_grid((1,2,1), img_a, feat_a.size()[2], scaled_nbbs_high[layer - l], 'a', colors)
-        plot_with_grid((1,2,2), img_b, feat_a.size()[2], scaled_nbbs_high[layer - l], 'b', colors)
+        plot_buddies((1,2,1), img_a, feat_a.size()[2], scaled_nbbs_high[layer - l], 'a', colors)
+        plot_buddies((1,2,2), img_b, feat_a.size()[2], scaled_nbbs_high[layer - l], 'b', colors)
         plt.show()
         
 #         plt.figure(1)
@@ -638,16 +670,16 @@ def main():
             
             r = [[Neuron(0, 0), Neuron(feat_width, feat_height)]]
             
-            C_A = common_appearance(feat_a_19[l - 1], feat_b_19[l - 1], r, r)# R[0], R[1])
-            C_B = common_appearance(feat_b_19[l - 1], feat_a_19[l - 1], r, r)# R[1], R[0]), 
+            C_A = common_appearance(feat_a_19[l - 1], feat_b_19[l - 1], r, r) # R[0], R[1])
+            C_B = common_appearance(feat_b_19[l - 1], feat_a_19[l - 1], r, r) # R[1], R[0]), 
             
 
     print("Printing all nbbs") 
     for curr_nbb in scaled_nbbs_high: 
-        plot_with_grid((1,2,1), img_a, feat_a.size()[2], curr_nbb, 'a', colors)
-        plot_with_grid((1,2,2), img_b, feat_a.size()[2], curr_nbb, 'b', colors)
+        plot_buddies((1,2,1), img_a, feat_a.size()[2], curr_nbb, 'a', colors)
+        plot_buddies((1,2,2), img_b, feat_a.size()[2], curr_nbb, 'b', colors)
     plt.show()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": 
     main()
